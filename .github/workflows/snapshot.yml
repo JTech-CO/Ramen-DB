@@ -1,13 +1,23 @@
-name: Weekly Snapshot
+name: Weekly Snapshot & Deploy
 
-# Tier1 풀 스냅샷 주간 산출(백서 §3.1). idempotent 재생성(INV-7).
+# Tier1 풀 스냅샷 주간 산출(백서 §3.1, idempotent INV-7) → 정적 사이트 생성(동일제품 중복 제거)
+# → GitHub Pages(gh-pages 브랜치) 배포. 수동 실행(workflow_dispatch)으로도 즉시 재배포 가능.
+# 라이브 수집엔 repository secret DATA_GO_KR_SERVICE_KEY 필요(INV-1: 키는 secret로만).
+# 미설정 시 샘플 데이터가 배포되지 않도록 가드로 중단한다.
 on:
   schedule:
     - cron: "0 18 * * 1" # 매주 월요일 03:00 KST (UTC 18:00 일요일)
   workflow_dispatch:
 
+permissions:
+  contents: write # gh-pages 브랜치 푸시
+
+concurrency:
+  group: snapshot-deploy
+  cancel-in-progress: true
+
 jobs:
-  snapshot:
+  snapshot-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,11 +30,20 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - name: Build snapshot
+      - name: Tier1 라이브 스냅샷 (식약처 I1250+I0490)
         env:
-          # 서비스키는 repository secret로만 주입(INV-1). 미설정 시 샘플 데이터로 산출.
           DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
-        run: npm run snapshot -w @ramen/pipeline
+          SNAPSHOT_NUTRITION: "off" # I2790(영양) 미승인 — 영양 제외(graceful degrade)
+          SNAPSHOT_VERSION: live
+        run: |
+          if [ -z "$DATA_GO_KR_SERVICE_KEY" ]; then
+            echo "::error::DATA_GO_KR_SERVICE_KEY 시크릿 미설정 — 샘플 데이터 배포 방지를 위해 중단합니다. (Repo Settings → Secrets and variables → Actions 에 추가)"
+            exit 1
+          fi
+          SNAPSHOT_AS_OF="$(date +%F)" node packages/pipeline/dist/snapshot.js
+
+      - name: 정적 사이트 생성 (동일제품 중복 제거)
+        run: SITE_SNAPSHOT=snapshots/live.json node apps/web/dist/site-build.js
 
       - name: Upload snapshot artifact
         uses: actions/upload-artifact@v4
@@ -32,3 +51,17 @@ jobs:
           name: ramen-snapshot
           path: snapshots/
           if-no-files-found: error
+
+      - name: GitHub Pages(gh-pages) 배포
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd site
+          touch .nojekyll
+          git init -q
+          git checkout -q -b gh-pages
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add -A
+          git commit -q -m "Initial commit"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
