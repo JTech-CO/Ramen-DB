@@ -46,11 +46,15 @@ export function productHref(id: string): string {
   return `product-${encodeURIComponent(id)}.html`;
 }
 
+function makerLine(p: Pick<RamenProduct, "manufacturerName">): string {
+  return p.manufacturerName ? `<p class="meta maker">${escapeHtml(p.manufacturerName)}</p>` : "";
+}
+
 export function renderProductCard(p: RamenProduct): string {
   const kcal = p.nutrition ? `${p.nutrition.energyKcal} kcal` : "영양 정보 없음";
   return `<article class="card">
   <h3><a href="${escapeAttr(productHref(p.id))}">${escapeHtml(p.name)}</a></h3>
-  <p class="meta">${renderStatus(p)}</p>
+  ${makerLine(p)}<p class="meta">${renderStatus(p)}</p>
   <p class="meta kcal">${escapeHtml(kcal)}</p>
   ${sourcesLine(p.sourceRefs)}
 </article>`;
@@ -151,7 +155,7 @@ export function renderProductDetail(
   return `<div class="detail">
   <div>
     <h1>${escapeHtml(p.name)}</h1>
-    <p class="meta">${renderStatus(p)} · ${escapeHtml(p.packageType === "CUP" ? "컵" : p.packageType === "BAG" ? "봉지" : "기타")}</p>
+    ${makerLine(p)}<p class="meta">${renderStatus(p)} · ${escapeHtml(p.packageType === "CUP" ? "컵" : p.packageType === "BAG" ? "봉지" : "기타")}</p>
     ${image}
     ${sourcesLine(p.sourceRefs)}
   </div>

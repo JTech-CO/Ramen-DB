@@ -23,6 +23,7 @@ function product(over: Partial<RamenProduct> = {}): RamenProduct {
     name: "신라면",
     packageType: "BAG",
     manufacturerId: "MFR-NS",
+    manufacturerName: "(주)농심",
     nutrition: { servingBasis: "1회제공량(120g)", energyKcal: 505, carbG: 79, proteinG: 11, fatG: 16, sodiumMg: 1790 },
     sourceRefs: ["PRODUCT_REPORT", "NUTRITION"],
     updatedAt: "2026-06-18",
@@ -58,6 +59,11 @@ describe("renderProductCard — INV-9 출처 + 이스케이프 + 결정론", () 
     const html = renderProductCard(product({ name: '<script>alert(1)</script>' }));
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+  it("제조사명 표기(동명 제품 구분), 없으면 미표기", () => {
+    expect(renderProductCard(product())).toContain("(주)농심");
+    const noMaker = renderProductCard(product({ manufacturerName: undefined }));
+    expect(noMaker).not.toContain('class="meta maker"');
   });
   it("결정론: 같은 입력 → 같은 HTML", () => {
     expect(renderProductCard(product())).toBe(renderProductCard(product()));

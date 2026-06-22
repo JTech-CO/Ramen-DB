@@ -100,6 +100,7 @@ export function finalizeProduct(draft: ProductDraft, status: StatusInfo): RamenP
     ...(draft.barcode ? { barcode: draft.barcode } : {}),
     packageType: draft.packageType,
     manufacturerId: draft.manufacturerId,
+    ...(draft.manufacturerName ? { manufacturerName: draft.manufacturerName } : {}),
     nutrition: draft.nutrition,
     ...(draft.imageUrl ? { imageUrl: draft.imageUrl } : {}),
     ...(draft.officialRecipe ? { officialRecipe: draft.officialRecipe } : {}),

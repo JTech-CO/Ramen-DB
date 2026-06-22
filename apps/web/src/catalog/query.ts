@@ -65,6 +65,59 @@ export function sortProducts(
   });
 }
 
+// ── 동일 제품 중복 제거(표시 전용) ──
+// 품목제조보고(I1250)는 한 소비자 제품을 공장·재신고별로 여러 보고번호로 등록한다
+// (예: '신라면'이 (주)농심의 LCNS 3개로 3건). PK(품목제조보고번호)는 보존하되(INV-5),
+// 카탈로그/검색 표시에서만 (제품명+제조사명)으로 대표 1건을 노출한다.
+// 제조사명이 다른 동명 제품(예: 14개 업체의 '생라멘')은 서로 다른 제품이므로 보존한다.
+
+/** 표시용 정규화 키 — 공백 제거·소문자. (제품명+제조사명) 동일 = 같은 소비자 제품. */
+function dedupeKey(p: RamenProduct): string {
+  const norm = (s: string): string => s.replace(/\s+/g, "").toLowerCase();
+  return `${norm(p.name)}|${norm(p.manufacturerName ?? "")}`;
+}
+
+/** 상태 심각도 — 대표 선택 시 안전정보(회수/판매중지)를 숨기지 않도록 높게 둔다. */
+const STATUS_SEVERITY: Record<ProductStatus, number> = {
+  RECALLED: 3,
+  SALES_HALTED: 2,
+  ON_SALE: 1,
+  "DISCONTINUED?": 0,
+};
+
+/** 정보 풍부도(영양>바코드>이미지) — 대표 동률 시 더 풍부한 레코드 우선. */
+function dataScore(p: RamenProduct): number {
+  return (p.nutrition ? 4 : 0) + (p.barcode ? 2 : 0) + (p.imageUrl ? 1 : 0);
+}
+
+/** a가 b보다 대표로 더 적합하면 true. 전순서(모든 동률은 PK 코드유닛으로 확정)·결정론. */
+function preferAsRepresentative(a: RamenProduct, b: RamenProduct): boolean {
+  const sa = STATUS_SEVERITY[a.status];
+  const sb = STATUS_SEVERITY[b.status];
+  if (sa !== sb) return sa > sb; // 회수/판매중지 우선(안전정보 보존)
+  const da = dataScore(a);
+  const db = dataScore(b);
+  if (da !== db) return da > db;
+  if (a.updatedAt !== b.updatedAt) return a.updatedAt > b.updatedAt; // 최신
+  return compareCodeUnits(a.id, b.id) < 0; // PK 최소(결정론 tiebreak)
+}
+
+/**
+ * 같은 소비자 제품(제품명+제조사명)의 여러 품목제조보고번호를 대표 1건으로 합친다(표시 전용).
+ * 스냅샷 원본(전체 PK)은 불변(INV-5/7). 입력 순서와 무관한 결정론적 결과.
+ */
+export function dedupeProducts(products: RamenProduct[]): RamenProduct[] {
+  const reps = new Map<string, RamenProduct>();
+  for (const p of products) {
+    const key = dedupeKey(p);
+    const cur = reps.get(key);
+    if (!cur || preferAsRepresentative(p, cur)) reps.set(key, p);
+  }
+  return [...reps.values()].sort(
+    (a, b) => compareCodeUnits(a.name, b.name) || compareCodeUnits(a.id, b.id),
+  );
+}
+
 // ── 패싯(필터 옵션 + 개수) ──
 
 export interface Facet {
@@ -98,6 +151,8 @@ export interface SearchEntry {
   name: string;
   /** 제조사 식별자 */
   mid: string;
+  /** 제조사명(표시·동명 제품 구분용) */
+  mfr: string;
   pkg: PackageType;
   status: ProductStatus;
   /** 에너지(kcal), 없으면 null */
@@ -109,6 +164,7 @@ export function buildSearchIndex(products: RamenProduct[]): SearchEntry[] {
     id: p.id,
     name: p.name,
     mid: p.manufacturerId,
+    mfr: p.manufacturerName ?? "",
     pkg: p.packageType,
     status: p.status,
     kcal: p.nutrition?.energyKcal ?? null,

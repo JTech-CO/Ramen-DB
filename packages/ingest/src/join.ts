@@ -127,6 +127,7 @@ export function joinProducts(inputs: JoinInputs, opts: JoinOptions): JoinResult 
       ...(barcode ? { barcode } : {}),
       packageType: p.packageType,
       manufacturerId: p.manufacturerId,
+      ...(p.manufacturerName ? { manufacturerName: p.manufacturerName } : {}),
       nutrition,
       ...(imageUrl ? { imageUrl } : {}),
       sourceRefs,

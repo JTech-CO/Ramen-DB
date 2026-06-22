@@ -19,7 +19,7 @@
   function apply() {
     var f = read();
     var r = data.filter(function (e) {
-      if (f.q && e.name.toLowerCase().indexOf(f.q) < 0) return false;
+      if (f.q && e.name.toLowerCase().indexOf(f.q) < 0 && (e.mfr || "").toLowerCase().indexOf(f.q) < 0) return false;
       if (f.st && e.status !== f.st) return false;
       if (f.pk && e.pkg !== f.pk) return false;
       return true;
@@ -45,6 +45,7 @@
           return (
             '<article class="card"><h3><a href="product-' + encodeURIComponent(e.id) + '.html">' +
             esc(e.name) + "</a></h3>" +
+            (e.mfr ? '<p class="meta maker">' + esc(e.mfr) + "</p>" : "") +
             '<p class="meta">' + esc(STATUS[e.status] || e.status) + " · " + esc(PKG[e.pkg] || e.pkg) + "</p>" +
             '<p class="meta">' + (e.kcal == null ? "영양 정보 없음" : esc(e.kcal) + " kcal") + "</p></article>"
           );

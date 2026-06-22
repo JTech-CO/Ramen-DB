@@ -51,8 +51,11 @@ export interface RamenProduct {
   /** GTIN/KAN — Tier 2 상품 매칭 브리지 키 */
   barcode?: string;
   packageType: PackageType;
-  /** → Manufacturer.id */
+  /** → Manufacturer.id (인허가번호 LCNS_NO — 공장/사업장 단위) */
   manufacturerId: string;
+  /** 제조사명(BSSH_NM) — 표시·동일제품 중복판정용(비키). 같은 브랜드가 공장별 LCNS_NO를
+   *  여러 개 가지므로, 표시 중복 제거는 (제품명+제조사명)으로 한다. */
+  manufacturerName?: string;
   /** 영양 DB 미커버 시 null(빈칸 미채움, Q2) */
   nutrition: Nutrition | null;
   status: ProductStatus;
@@ -80,6 +83,8 @@ export interface ProductDraft {
   barcode?: string;
   packageType: PackageType;
   manufacturerId: string;
+  /** 제조사명(BSSH_NM) — RamenProduct로 전달(표시·중복판정). */
+  manufacturerName?: string;
   nutrition: Nutrition | null;
   imageUrl?: string;
   officialRecipe?: string;

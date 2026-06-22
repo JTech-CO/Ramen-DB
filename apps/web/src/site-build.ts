@@ -8,7 +8,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RamenProduct, RamenShop, Recipe } from "@ramen/core-domain";
 import type { Page } from "./catalog/query.js";
-import { buildSearchIndex, paginate, sortProducts, sortShops } from "./catalog/query.js";
+import { buildSearchIndex, dedupeProducts, paginate, sortProducts, sortShops } from "./catalog/query.js";
 import type { AffiliateView } from "./tier2/affiliate-view.js";
 import { InMemoryUgcRepository } from "./ugc/repository.js";
 import {
@@ -86,8 +86,12 @@ function main(): void {
   const ugc = loadUgcRepo();
   mkdirSync(outDir, { recursive: true });
 
+  // 표시 전용 중복 제거: 같은 (제품명+제조사명)의 여러 품목제조보고번호를 대표 1건으로.
+  // 스냅샷 원본(전체 PK)은 불변. 카탈로그·상세·검색이 동일한 대표 집합을 쓴다.
+  const canonical = dedupeProducts(snap.products);
+
   // 카탈로그(이름순) 페이지네이션: index.html, products-2.html, …
-  const products = sortProducts(snap.products, "name");
+  const products = sortProducts(canonical, "name");
   const productHrefFor = (p: number): string => (p === 1 ? "index.html" : `products-${p}.html`);
   const productPages = writePaged(products, "index.html", productHrefFor, renderCatalogPage);
 
@@ -96,9 +100,9 @@ function main(): void {
   const shopHrefFor = (p: number): string => (p === 1 ? "shops.html" : `shops-${p}.html`);
   const shopPages = writePaged(shops, "shops.html", shopHrefFor, renderShopsPage);
 
-  // 제품 상세(+approved UGC)
+  // 제품 상세(+approved UGC) — 대표 제품만.
   let recipeCount = 0;
-  for (const p of snap.products) {
+  for (const p of canonical) {
     const recipes = ugc.recipesForProduct(p.id, { publicOnly: true });
     recipeCount += recipes.length;
     writeFileSync(resolve(outDir, productHref(p.id)), renderDetailPage(p, EMPTY_PRICE, recipes), "utf8");
@@ -106,12 +110,12 @@ function main(): void {
 
   // 클라이언트 검색: search.html + search-index.json + search.js
   writeFileSync(resolve(outDir, "search.html"), renderSearchPage(), "utf8");
-  writeFileSync(resolve(outDir, "search-index.json"), JSON.stringify(buildSearchIndex(snap.products)), "utf8");
+  writeFileSync(resolve(outDir, "search-index.json"), JSON.stringify(buildSearchIndex(canonical)), "utf8");
   const searchJs = resolve(publicDir, "search.js");
   if (existsSync(searchJs)) copyFileSync(searchJs, resolve(outDir, "search.js"));
 
   process.stdout.write(
-    `site [${snap.version}]: 제품 ${snap.products.length}(${productPages}p) · 음식점 ${snap.shops.length}(${shopPages}p) · 꿀조합 ${recipeCount} · 검색인덱스 → ${outDir}\n`,
+    `site [${snap.version}]: 제품 ${canonical.length}/${snap.products.length}(중복제거 ${snap.products.length - canonical.length})(${productPages}p) · 음식점 ${snap.shops.length}(${shopPages}p) · 꿀조합 ${recipeCount} · 검색인덱스 → ${outDir}\n`,
   );
 }
 

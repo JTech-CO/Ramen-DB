@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RamenProduct } from "@ramen/core-domain";
 import {
   buildSearchIndex,
+  dedupeProducts,
   filterProducts,
   manufacturerFacets,
   paginate,
@@ -98,7 +99,44 @@ describe("패싯·검색 인덱스", () => {
   it("buildSearchIndex: 이름순·경량 필드·kcal null", () => {
     const idx = buildSearchIndex(list);
     expect(idx.map((e) => e.name)).toEqual(["A", "B", "C"]); // 이름순
-    expect(idx.find((e) => e.id === "1")).toEqual({ id: "1", name: "B", mid: "NS", pkg: "BAG", status: "ON_SALE", kcal: 500 });
+    expect(idx.find((e) => e.id === "1")).toEqual({ id: "1", name: "B", mid: "NS", mfr: "", pkg: "BAG", status: "ON_SALE", kcal: 500 });
     expect(idx.find((e) => e.id === "2")!.kcal).toBeNull();
+  });
+});
+
+describe("dedupeProducts — 동일 (제품명+제조사명) 대표 1건", () => {
+  it("같은 브랜드(제조사명 동일)·다른 LCNS는 1건으로 합친다", () => {
+    // 신라면 사례: (주)농심이 공장별 LCNS 3개로 3건 → 1건.
+    const list = [
+      p({ id: "200105495411", name: "신라면", manufacturerId: "20010549541", manufacturerName: "(주)농심" }),
+      p({ id: "197201540011", name: "신라면", manufacturerId: "19720154001", manufacturerName: "(주)농심" }),
+      p({ id: "1986036000721", name: "신라면", manufacturerId: "19860360007", manufacturerName: "(주)농심" }),
+    ];
+    const out = dedupeProducts(list);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.id).toBe("197201540011"); // PK 코드유닛 최소(결정론 tiebreak)
+  });
+
+  it("제조사명이 다른 동명 제품은 보존한다", () => {
+    // 생라멘 사례: 서로 다른 업체 → 서로 다른 제품.
+    const list = [
+      p({ id: "a", name: "생라멘", manufacturerName: "한일식품(주)" }),
+      p({ id: "b", name: "생라멘", manufacturerName: "(주)오에프지" }),
+      p({ id: "c", name: "생라멘", manufacturerName: "성신푸드" }),
+    ];
+    expect(dedupeProducts(list)).toHaveLength(3);
+  });
+
+  it("공백·대소문자 무시, 입력 순서와 무관(결정론)", () => {
+    const a = p({ id: "1", name: "신 라면", manufacturerName: "농심" });
+    const b = p({ id: "2", name: "신라면", manufacturerName: "농 심" });
+    expect(dedupeProducts([a, b])).toHaveLength(1);
+    expect(dedupeProducts([b, a])[0]!.id).toBe(dedupeProducts([a, b])[0]!.id);
+  });
+
+  it("대표는 안전상태(회수/판매중지)·정보풍부도 우선", () => {
+    const onSale = p({ id: "1", name: "X", manufacturerName: "M", status: "ON_SALE" });
+    const recalled = p({ id: "2", name: "X", manufacturerName: "M", status: "RECALLED" });
+    expect(dedupeProducts([onSale, recalled])[0]!.id).toBe("2"); // 회수가 대표
   });
 });
