@@ -1,0 +1,34 @@
+name: Weekly Snapshot
+
+# Tier1 풀 스냅샷 주간 산출(백서 §3.1). idempotent 재생성(INV-7).
+on:
+  schedule:
+    - cron: "0 18 * * 1" # 매주 월요일 03:00 KST (UTC 18:00 일요일)
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Build snapshot
+        env:
+          # 서비스키는 repository secret로만 주입(INV-1). 미설정 시 샘플 데이터로 산출.
+          DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+        run: npm run snapshot -w @ramen/pipeline
+
+      - name: Upload snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ramen-snapshot
+          path: snapshots/
+          if-no-files-found: error

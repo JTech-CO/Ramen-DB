@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint (모듈 경계 INV-3 / Tier2 비영속 INV-4)
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # 시크릿(INV-1)은 repository secret로만 주입. 여기서는 빌드/검증만 수행.

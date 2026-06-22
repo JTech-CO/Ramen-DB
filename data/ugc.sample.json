@@ -1,0 +1,29 @@
+{
+  "recipes": [
+    {
+      "id": "rcp-0001",
+      "title": "신라면 골든 레시피 (계란·대파·치즈)",
+      "baseProductIds": ["20210001"],
+      "ingredients": ["신라면 1봉", "계란 1개", "대파 1/2대", "슬라이스 치즈 1장", "물 550ml"],
+      "steps": [
+        "물 550ml를 끓인다",
+        "면과 분말스프·건더기를 넣고 4분 끓인다",
+        "불을 끄기 30초 전 계란과 대파를 넣는다",
+        "그릇에 담고 치즈를 올린다"
+      ],
+      "author": "ramen_lover",
+      "submittedAt": "2026-06-19T01:00:00.000Z",
+      "moderation": "APPROVED"
+    },
+    {
+      "id": "rcp-0002",
+      "title": "검수 대기 레시피 (공개 안 됨)",
+      "baseProductIds": ["20210001"],
+      "ingredients": ["신라면 1봉"],
+      "steps": ["끓인다"],
+      "author": "spam_user",
+      "submittedAt": "2026-06-19T02:00:00.000Z",
+      "moderation": "PENDING"
+    }
+  ]
+}
