@@ -3,11 +3,12 @@
 > 이 팩에서 **매 세션 바뀌는 유일한 파일**. 세션이 끊겨도 이 파일만 읽으면 이어서 작업 가능해야 한다.
 
 ## 현재 상태
-- **현재 phase**: **M0~M7 전 마일스톤 ✅** + **Tier1·Tier2 라이브 실데이터 가동 🎉** — 식약처 실키로 **첫 전국 라면 스냅샷 932종** 산출. 백서 로드맵 Phase 0~3 빌드+라이브 완성.
-- **상태**: 데이터(Tier1)·가격제휴(Tier2)·UI(정적+검색/페이지네이션)·UGC 전 계층 동작 + **실데이터**. **187 테스트 green**. **Tier1 라이브 932 라면**(식약처 I1250+I0490, 면류 서버필터). **네이버쇼핑 가격 실키 OK**. 남은 것: I2790 영양 활용신청, 음식점(LOCALDATA 이관), 실DB·인증, 지역 샤딩, 보정 리스트.
-- **마지막 갱신**: 2026-06-22, **Tier1 라이브 첫 스냅샷(932 라면)** 세션
+- **현재 phase**: **M0~M7 ✅ + 라이브 실데이터 + 공개 호스팅 🎉** — 식약처 실키 **932종**이 **GitHub Pages 라이브**: https://jtech-co.github.io/Ramen-DB/ (repo: JTech-CO/Ramen-DB).
+- **상태**: 데이터(Tier1)·가격제휴(Tier2)·UI(정적+검색/페이지네이션)·UGC 전 계층 + **실데이터** + **공개 사이트**. **187 테스트 green**. 사이트명 **Ramen-DB**. 남은 것: I2790 영양 활용신청, 음식점(LOCALDATA 이관), 실DB·인증, 지역 샤딩, 보정 리스트.
+- **마지막 갱신**: 2026-06-22, **GitHub Pages 호스팅(Ramen-DB)** 세션
 
 ## 직전에 끝낸 것
+- **공개 호스팅(GitHub Pages) + 사이트명 Ramen-DB**: 표시명 `ramen.live`→`Ramen-DB`(render.ts 5곳+README). 932종 사이트 재생성. **JTech-CO/Ramen-DB** 푸시 — `main`=소스(LICENSE·README 보존), `gh-pages`=빌드물(953파일+`.nojekyll`), 둘 다 단일 **"Initial commit"**(사용자 지정). Pages 소스를 gh-pages로 전환 → 라이브 검증(index/상세/검색/페이지네이션/search-index 932 전부 200, '신라면 — Ramen-DB/판매중'). 원래 히스토리는 로컬 `dev-history` 보존. `.env`·스냅샷·산출물 미푸시 확인.
 - **Tier1 라이브 첫 스냅샷 — 전국 라면 932종(식약처 실데이터)**: `DATA_GO_KR_SERVICE_KEY`(식품안전나라 인증키)로 라이브 가동. **런북 9 확정**(실키 probe): I1250(품목제조, total 1,058,272)·I0490(회수, 351) 필드명·envelope 우리 매퍼와 일치, **I2790(영양)은 미승인**(같은 키로 200+HTML "인증키 유효하지 않음" — 서비스별 활용신청 필요). 구현: ① **식품유형 서버필터**(`fetchProductReportsByFoodTypes` — `PRDLST_DCNM=유탕면/건면…`로 면류만 받아 106만 전량 회피, 도메인 필터 ①단계 서버사이드 이행, PK 중복제거·식품유형별 부분성공) ② **영양 graceful degrade**(I2790 미승인/장애 시 경고 후 빈 배열, 스냅샷 안 막음; `SNAPSHOT_NUTRITION=off`로 호출 생략) ③ **버스트 스로틀링 재시도**(`fetchEnvelope` 선형 백오프 3회 — 식약처가 동시요청에 간헐 인증오류 HTML 반환, 키는 유효) ④ 요청 타임아웃 60s. 결과 **932 라면**(BAG 743·CUP 189, 전부 ON_SALE/high, 회수매칭 0=날조 없음, 키워드 오탐 1건 '클로렐라 면'→보정 후보). ingest +5 테스트(**187**), verify exit 0. 스냅샷은 snapshots/(gitignore). ADR-0007 라이브 확정 절 추가.
 - **Tier2 네이버 라이브 검증 + INV-10 허위 대가성문구 회귀 수정**: 실키(`.env` 네이버)로 `apps/web/src/tier2-smoke.ts`(print-only, **비영속 INV-4** — 파일/DB 미기록) 추가, `node --env-file=.env apps/web/dist/tier2-smoke.js 신라면` → 견적 5건 정상 수신(네이버쇼핑 가격 경로 동작 입증). **라이브가 실버그 적발**: `hasAffiliate`의 쿠팡-URL fail-safe가 네이버쇼핑이 노출한 **제3자** `link.coupang.com`(affiliate:false)을 우리 제휴로 오판 → 수수료를 받지도 않는데 쿠팡 파트너스 대가성 문구를 붙이는 **허위 표시**(INV-10 역방향 위반). 라면은 네이버 결과에 쿠팡 셀러가 상존 → 대부분 상세에 노출됐을 문제. **수정**: 판정을 권위 신호(`affiliate===true`) + 우리 provider source(`"쿠팡"`) 스코프로 좁히고 제3자 URL 도메인 판정 제거. 부수로 `renderPriceSection`의 `rel`을 제휴 링크에만 `sponsored`(비제휴엔 `nofollow noopener`)로 분기 — 오표기 방지. eslint가 생성물 `site/**`를 린트해 verify 깨지던 설정 갭도 ignore 추가로 해소. 회귀 테스트 +2(라이브 회귀: 제3자 쿠팡URL→문구 없음 / 비제휴 rel). **182 테스트 green**, verify exit 0. 재실행 스모크에서 허위 문구 사라짐 확인.
 - **검색·필터·페이지네이션 구조(대량 데이터 대비)**: `catalog/query.ts`(순수: paginate·filter·sort·facets·searchIndex) + 빌드타임 페이지네이션(index/products-N·shops/shops-N, 무JS·크롤 가능) + 클라이언트 검색(search.html + search-index.json + public/search.js, 무프레임워크, noscript 폴백). web +15 테스트(180). SITE_PER_PAGE로 페이지 크기 조절, 종단 검증.
@@ -62,7 +63,7 @@
 
 ## 미결 질문 / 사용자 결정 대기
 - Q2 영양 DB ↔ 품목제조보고 로스터 커버리지 갭 실측(M1에서).
-- Q4 호스팅·산출 포맷(JSON vs SQLite, 정적/CDN vs Pi) — M3 선행.
+- ✅Q4 호스팅 = **GitHub Pages**(정적, gh-pages 브랜치) 채택·가동. 산출 포맷 JSON(ADR-0006).
 - Q5 도메인 ramen.live 확보.
 - (Q1·Q3는 ADR-0003·0004로 해소. 패키지 매니저는 ADR-0005로 확정.)
 
