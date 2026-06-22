@@ -3,11 +3,15 @@
 > 이 팩에서 **매 세션 바뀌는 유일한 파일**. 세션이 끊겨도 이 파일만 읽으면 이어서 작업 가능해야 한다.
 
 ## 현재 상태
-- **현재 phase**: **M0~M7 ✅ + 라이브 실데이터 + 공개 호스팅 🎉** — 식약처 실키 **932종**이 **GitHub Pages 라이브**: https://jtech-co.github.io/Ramen-DB/ (repo: JTech-CO/Ramen-DB).
-- **상태**: 데이터(Tier1)·가격제휴(Tier2)·UI(정적+검색/페이지네이션)·UGC 전 계층 + **실데이터** + **공개 사이트**. **187 테스트 green**. 사이트명 **Ramen-DB**. 남은 것: I2790 영양 활용신청, 음식점(LOCALDATA 이관), 실DB·인증, 지역 샤딩, 보정 리스트.
-- **마지막 갱신**: 2026-06-22, **GitHub Pages 호스팅(Ramen-DB)** 세션
+- **현재 phase**: **M0~M7 ✅ + 라이브 실데이터 + 공개 호스팅 + CI 자동배포 🎉** — 식약처 실데이터(스냅샷 934종 → 표시 중복제거 **872종**)가 **GitHub Pages 라이브**: https://jtech-co.github.io/Ramen-DB/ (repo: JTech-CO/Ramen-DB).
+- **상태**: 전 계층 + 실데이터 + 공개 사이트 + 주간 자동배포 워크플로. **192 테스트 green**. 남은 것: **음식점 라이브(data.go.kr 키 필요)**, I2790 영양 활용신청, CI 시크릿 추가, 실DB·인증, 지역 샤딩, 보정 리스트.
+- **마지막 갱신**: 2026-06-23, **중복제거 + CI 자동배포 + 음식점 API 조사** 세션
 
 ## 직전에 끝낸 것
+- **동일제품 중복 제거 + CI 자동배포 + 음식점 API 조사**(3건):
+  - ① **중복 제거**: 품목제조보고(I1250)는 한 제품을 공장·재신고별로 여러 보고번호로 등록(예: '신라면'이 (주)농심 LCNS 3개). 진단: 이름만으론 안 됨(14개 업체의 '생라멘'은 서로 다른 제품). 키 = **(제품명+제조사명 BSSH_NM)**. `manufacturerName`을 RamenProduct까지 전달(types/join/status), `catalog/query.ts dedupeProducts`(안전상태>정보풍부>최신>PK 결정론 대표 선택), site-build가 카탈로그·상세·검색에 적용. 카드/상세/검색에 제조사명 표기(동명 제품 구분). **934→872(중복 62 제거)**, 신라면 3→1, 생라멘 14 보존. web +5 테스트(**192**). 라이브 확인 완료.
+  - ② **CI 자동배포**: `.github/workflows/snapshot.yml` 확장 → 스냅샷(라이브)→사이트생성(중복제거)→gh-pages 푸시. workflow_dispatch+주간 cron. **검증**: dispatch 실행으로 checkout·npm ci·build 성공 확인, 시크릿 미설정 시 가드로 중단(샘플 배포 방지). ⚠️**활성화에 `DATA_GO_KR_SERVICE_KEY` repo secret 추가 필요**(자동 업로드는 INV-1 가드로 차단됨 — 사용자가 직접 추가).
+  - ③ **음식점 API 조사**(서브에이전트): LOCALDATA(localdata.go.kr) **2026-04-16 폐지**(REST 호스트 다운). 정본 = data.go.kr OpenAPI **15154916**(행안부 일반음식점, `serviceKey` **쿼리**파라미터·odcloud `page/perPage`·`data[]`, 필드 `bplcNm/rdnWhlAddr/x·y/trdStateNm/uptaeNm/mgtNo`, 좌표 **EPSG:5174 Bessel** 투영미터). 모범음식점 = **15064964/I1590**(식약처, 기존 path키로 호출 가능하나 주소·좌표 없음 → 표준CSV 15096282 조인). **→ 음식점 라이브엔 새 data.go.kr serviceKey 필요**(15154916 활용신청, 자동승인). ADR-0007 음식점 절 추가.
 - **공개 호스팅(GitHub Pages) + 사이트명 Ramen-DB**: 표시명 `ramen.live`→`Ramen-DB`(render.ts 5곳+README). 932종 사이트 재생성. **JTech-CO/Ramen-DB** 푸시 — `main`=소스(LICENSE·README 보존), `gh-pages`=빌드물(953파일+`.nojekyll`), 둘 다 단일 **"Initial commit"**(사용자 지정). Pages 소스를 gh-pages로 전환 → 라이브 검증(index/상세/검색/페이지네이션/search-index 932 전부 200, '신라면 — Ramen-DB/판매중'). 원래 히스토리는 로컬 `dev-history` 보존. `.env`·스냅샷·산출물 미푸시 확인.
 - **Tier1 라이브 첫 스냅샷 — 전국 라면 932종(식약처 실데이터)**: `DATA_GO_KR_SERVICE_KEY`(식품안전나라 인증키)로 라이브 가동. **런북 9 확정**(실키 probe): I1250(품목제조, total 1,058,272)·I0490(회수, 351) 필드명·envelope 우리 매퍼와 일치, **I2790(영양)은 미승인**(같은 키로 200+HTML "인증키 유효하지 않음" — 서비스별 활용신청 필요). 구현: ① **식품유형 서버필터**(`fetchProductReportsByFoodTypes` — `PRDLST_DCNM=유탕면/건면…`로 면류만 받아 106만 전량 회피, 도메인 필터 ①단계 서버사이드 이행, PK 중복제거·식품유형별 부분성공) ② **영양 graceful degrade**(I2790 미승인/장애 시 경고 후 빈 배열, 스냅샷 안 막음; `SNAPSHOT_NUTRITION=off`로 호출 생략) ③ **버스트 스로틀링 재시도**(`fetchEnvelope` 선형 백오프 3회 — 식약처가 동시요청에 간헐 인증오류 HTML 반환, 키는 유효) ④ 요청 타임아웃 60s. 결과 **932 라면**(BAG 743·CUP 189, 전부 ON_SALE/high, 회수매칭 0=날조 없음, 키워드 오탐 1건 '클로렐라 면'→보정 후보). ingest +5 테스트(**187**), verify exit 0. 스냅샷은 snapshots/(gitignore). ADR-0007 라이브 확정 절 추가.
 - **Tier2 네이버 라이브 검증 + INV-10 허위 대가성문구 회귀 수정**: 실키(`.env` 네이버)로 `apps/web/src/tier2-smoke.ts`(print-only, **비영속 INV-4** — 파일/DB 미기록) 추가, `node --env-file=.env apps/web/dist/tier2-smoke.js 신라면` → 견적 5건 정상 수신(네이버쇼핑 가격 경로 동작 입증). **라이브가 실버그 적발**: `hasAffiliate`의 쿠팡-URL fail-safe가 네이버쇼핑이 노출한 **제3자** `link.coupang.com`(affiliate:false)을 우리 제휴로 오판 → 수수료를 받지도 않는데 쿠팡 파트너스 대가성 문구를 붙이는 **허위 표시**(INV-10 역방향 위반). 라면은 네이버 결과에 쿠팡 셀러가 상존 → 대부분 상세에 노출됐을 문제. **수정**: 판정을 권위 신호(`affiliate===true`) + 우리 provider source(`"쿠팡"`) 스코프로 좁히고 제3자 URL 도메인 판정 제거. 부수로 `renderPriceSection`의 `rel`을 제휴 링크에만 `sponsored`(비제휴엔 `nofollow noopener`)로 분기 — 오표기 방지. eslint가 생성물 `site/**`를 린트해 verify 깨지던 설정 갭도 ignore 추가로 해소. 회귀 테스트 +2(라이브 회귀: 제3자 쿠팡URL→문구 없음 / 비제휴 rel). **182 테스트 green**, verify exit 0. 재실행 스모크에서 허위 문구 사라짐 확인.
@@ -55,7 +59,8 @@
 
 ## 미해결(실데이터 단계 보강 필요)
 - **영양 조인 전략(Q2, ADR-0007)**: ✅결정 = 옵션②(보류) 당장. 추가 시 **I2790 아님**(구버전~2023·미인가) → data.go.kr 「전국통합식품영양성분정보(가공식품) 표준데이터」 활용신청 + **신규 어댑터**(다른 엔드포인트/필드) → 기존 식품명+제조사 매칭에 연결. (식약처는 서비스별 활용신청; data.go.kr 15127578은 LOD라 OpenAPI 신청 불가.)
-- **LOCALDATA 이관(ADR-0007)**: localdata.go.kr 2026-04-16 폐지 → data.go.kr 이관본 엔드포인트·모범음식점 ID 확인 후 음식점 라이브 어댑터 배선. (현 라이브 shops=0)
+- **음식점 라이브(ADR-0007, 조사완료)**: LOCALDATA 폐지 → 정본 data.go.kr `15154916`(일반음식점). **블로킹 = 새 data.go.kr serviceKey 발급**(15154916 활용신청·자동승인). 키 확보 후 라이브 1건으로 odcloud 경로 확정→어댑터 배선, 좌표 EPSG:5174 변환. (현 라이브 shops=0)
+- **CI 자동배포 활성화**: `.github/workflows/snapshot.yml` 준비됨(검증 OK). repo Settings→Secrets에 **`DATA_GO_KR_SERVICE_KEY`** 추가하면 주간/수동 자동배포 동작(미설정 시 가드로 중단).
 - ✅**라이브 1건 확정(런북 9) 완료(2026-06-22)**: I1250·I0490 envelope·필드명 실키 대조 일치, SERVICE_ID **I1250 확정**, 제품은 식품유형 서버필터 채택. I2790만 미승인.
 - 도메인 필터 보정 리스트는 현재 빈 시드 — **첫 실데이터 오탐 발견**: `천하일미 만능 클로렐라 면`(compact 후 '라면' 부분매칭) → exclude 후보. 라이브 표본으로 채움(제품·음식점 공통).
 - 스냅샷 시계열 부재(DISCONTINUED? low) 카운팅은 M2 규칙으로 모델링됨 → 다주차 스냅샷 누적 시 파이프라인에 부재 카운터 연결 필요.

@@ -47,3 +47,13 @@
 ### 갱신된 결정
 - 영양 조인 = **옵션 ②(영양 보류)로 당장 진행**(932종 DB는 영양 없이 완결). 추가 시 **I2790이 아니라** data.go.kr 「전국통합식품영양성분정보(가공식품) 표준데이터」를 활용신청하고 **신규 어댑터**를 배선(엔드포인트·필드 상이) → 기존 식품명+제조사 매칭(ADR-0007 옵션①·배선됨)에 연결. `SNAPSHOT_NUTRITION=off`로 미승인 중 호출 생략.
 - 제품 SERVICE_ID **I1250 확정**, 식품유형 서버필터를 라이브 기본 경로로 채택.
+
+## 음식점 라이브 — LOCALDATA 폐지·data.go.kr 이관 (2026-06-23, 서브에이전트 조사)
+- **LOCALDATA(localdata.go.kr) 2026-04-16 완전 폐지** — REST 호스트(`/platform/rest/TO0/openDataApi?authKey=`) 다운(연결 거부). `file.localdata.go.kr` 벌크 CSV만 잔존. → data.go.kr로 이관.
+- **일반음식점(spine) = data.go.kr OpenAPI `15154916`**(행정안전부, 구 `07_24_04_P`). 인증 = data.go.kr **serviceKey 쿼리파라미터**(식약처 path키와 다름). odcloud 변환형(`api.odcloud.kr/api/15154916/v1/uddi:<uuid>?serviceKey=&page=&perPage=`), 행은 `data[]`. 필드: `bplcNm`(상호)·`rdnWhlAddr`(도로명)·`x`/`y`(좌표)·`trdStateNm`(영업상태)·`uptaeNm`(업태 일식/분식)·**`mgtNo`(관리번호=PK)**. 일 10,000콜.
+  - **좌표 = EPSG:5174 Bessel 투영미터(경위도 아님)**. proj4: `+proj=tmerc +lat_0=38 +lon_0=127.0028902777778 +k=1 +x_0=200000 +y_0=500000 +ellps=bessel +units=m +towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43`. (우리 shared/coords.ts EPSG:5174 정의와 일치 — 2097 금지.)
+- **모범음식점 = data.go.kr `15064964` = 식약처 `I1590`** — **기존 path키로 호출 가능**(`.../api/{KEY}/I1590/json/1/1000`, 행 `I1590.row[]`). 단 8필드(LCNS_NO·BSSH_NM·SIGNGU_NM·…)로 **주소·좌표·mgtNo 없음** → 표준CSV `15096282`(행안부, 주소+관리번호 보유) 또는 업소명+주소로 일반음식점에 조인.
+- **KEY REQUIRED — 새 data.go.kr serviceKey 필요(YES)**: 일반음식점 `15154916` 활용신청(자동승인 ~1–2h) → Decoding 키를 별도 secret(예 `DATA_GO_KR_API_KEY`)로. 식약처 path키로는 호출 불가. (모범음식점 I1590만 예외적으로 기존 키 사용 가능하나 단독으론 불충분.)
+
+### 음식점 결정
+- **블로킹: 새 data.go.kr 키 발급 대기.** 키 확보 후 (식약처처럼) 라이브 1건 응답으로 odcloud 경로·파라미터(`page/perPage` vs `pageNo/numOfRows`)·필드 케이싱 확정한 뒤 `ingest/adapters/datagokr-restaurant.ts` 배선(추측 코드 금지). 좌표는 기존 toWgs84(EPSG:5174)로 변환. 대량(~210만행)이라 초기 벌크 시드 + 지역(opnSfTeamCode) 증분.
