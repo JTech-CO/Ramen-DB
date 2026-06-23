@@ -195,6 +195,13 @@ export default tseslint.config(
       globals: { ...globals.browser },
     },
   },
+  // ── ops 스크립트(scripts/*.mjs): 노드 전역 ──
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { ...globals.node, TextDecoder: "readonly" },
+    },
+  },
   // ── 테스트 파일: 일부 규칙 완화 ──
   {
     files: ["**/*.test.ts", "**/*.spec.ts", "**/__fixtures__/**/*.ts"],

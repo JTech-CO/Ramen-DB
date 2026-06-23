@@ -16,6 +16,7 @@ import {
 import { diffSnapshots } from "./diff.js";
 import { fetchLiveRawInputs } from "./live.js";
 import { SAMPLE_AS_OF, SAMPLE_INPUTS, SAMPLE_VERSION } from "./sample-data.js";
+import type { RawRestaurant } from "@ramen/ingest";
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/pipeline/dist
 const repoRoot = resolve(here, "..", "..", ".."); // dist → pipeline → packages → root
@@ -24,6 +25,16 @@ const outDir = process.env.SNAPSHOT_OUT_DIR
   : resolve(repoRoot, "snapshots");
 
 async function resolveInputs(): Promise<{ inputs: RawInputs; mode: string }> {
+  // 음식점 벌크 시드(전량 커버) — 있으면 API 스캔보다 우선한다(ADR-0007).
+  const shopsFile = process.env.SNAPSHOT_SHOPS_FILE
+    ? resolve(process.env.SNAPSHOT_SHOPS_FILE)
+    : resolve(repoRoot, "data", "ramen-shops.json");
+  const fileShops = existsSync(shopsFile)
+    ? (JSON.parse(readFileSync(shopsFile, "utf8")) as RawRestaurant[])
+    : undefined;
+
+  let inputs: RawInputs;
+  let mode: string;
   // 라이브 키가 있으면 식약처 실데이터 수집(스모크 테스트는 SNAPSHOT_MAX_ROWS로 제한 가능).
   if (process.env.DATA_GO_KR_SERVICE_KEY?.trim()) {
     const maxRows = process.env.SNAPSHOT_MAX_ROWS
@@ -31,26 +42,31 @@ async function resolveInputs(): Promise<{ inputs: RawInputs; mode: string }> {
       : undefined;
     // 영양(I2790) 미승인 시 SNAPSHOT_NUTRITION=off로 호출 자체를 생략(불필요한 실패·경고 회피).
     const includeNutrition = process.env.SNAPSHOT_NUTRITION !== "off";
-    // 음식점(data.go.kr): 키 + 명시적 상한(SNAPSHOT_SHOP_MAX_ROWS)이 둘 다 있을 때만 수집.
-    // 전국 2.28M·서버필터 없음 → 쿼터·시간 보호를 위해 명시적 opt-in.
-    const shopMaxRows = process.env.SNAPSHOT_SHOP_MAX_ROWS
-      ? Number(process.env.SNAPSHOT_SHOP_MAX_ROWS)
-      : undefined;
+    // 음식점 API 스캔: 시드 파일이 없을 때만(파일이 전량 커버). 키+상한 둘 다 있을 때만.
+    const shopMaxRows =
+      !fileShops && process.env.SNAPSHOT_SHOP_MAX_ROWS
+        ? Number(process.env.SNAPSHOT_SHOP_MAX_ROWS)
+        : undefined;
     const restaurantServiceKey =
       shopMaxRows !== undefined ? process.env.DATA_GO_KR_API_KEY?.trim() : undefined;
-    const inputs = await fetchLiveRawInputs({
+    inputs = await fetchLiveRawInputs({
       includeNutrition,
       ...(maxRows !== undefined ? { maxRows } : {}),
       ...(restaurantServiceKey ? { restaurantServiceKey } : {}),
       ...(shopMaxRows !== undefined ? { restaurantMaxRows: shopMaxRows } : {}),
     });
-    const shopsNote = restaurantServiceKey ? "+음식점" : "";
-    return {
-      inputs,
-      mode: `live(식약처${includeNutrition ? "" : "·영양제외"}${shopsNote})`,
-    };
+    mode = `live(식약처${includeNutrition ? "" : "·영양제외"}${restaurantServiceKey ? "+음식점API" : ""})`;
+  } else {
+    inputs = SAMPLE_INPUTS;
+    mode = "sample";
   }
-  return { inputs: SAMPLE_INPUTS, mode: "sample" };
+
+  // 시드 파일이 있으면 음식점은 이것으로 확정(전량 커버, API보다 우선).
+  if (fileShops) {
+    inputs = { ...inputs, restaurants: fileShops };
+    mode += `+음식점시드(${fileShops.length})`;
+  }
+  return { inputs, mode };
 }
 
 async function main(): Promise<void> {
