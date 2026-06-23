@@ -68,6 +68,13 @@ export { joinShops } from "./shop-join.js";
 export type { DataGoKrEndpoint, FetchOptions } from "./adapters/data-go-kr.js";
 export { loadServiceKey, fetchAllRows } from "./adapters/data-go-kr.js";
 
+export type { DataGoKrRestaurantOptions } from "./adapters/datagokr-restaurant.js";
+export {
+  DATAGOKR_RESTAURANT_ENDPOINT,
+  fetchGeneralRestaurants,
+  mapRestaurantRow,
+} from "./adapters/datagokr-restaurant.js";
+
 export type { FoodSafetyOptions } from "./adapters/foodsafetykorea.js";
 export {
   FOOD_SAFETY_BASE,

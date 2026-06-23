@@ -55,5 +55,8 @@
 - **모범음식점 = data.go.kr `15064964` = 식약처 `I1590`** — **기존 path키로 호출 가능**(`.../api/{KEY}/I1590/json/1/1000`, 행 `I1590.row[]`). 단 8필드(LCNS_NO·BSSH_NM·SIGNGU_NM·…)로 **주소·좌표·mgtNo 없음** → 표준CSV `15096282`(행안부, 주소+관리번호 보유) 또는 업소명+주소로 일반음식점에 조인.
 - **KEY REQUIRED — 새 data.go.kr serviceKey 필요(YES)**: 일반음식점 `15154916` 활용신청(자동승인 ~1–2h) → Decoding 키를 별도 secret(예 `DATA_GO_KR_API_KEY`)로. 식약처 path키로는 호출 불가. (모범음식점 I1590만 예외적으로 기존 키 사용 가능하나 단독으론 불충분.)
 
-### 음식점 결정
-- **블로킹: 새 data.go.kr 키 발급 대기.** 키 확보 후 (식약처처럼) 라이브 1건 응답으로 odcloud 경로·파라미터(`page/perPage` vs `pageNo/numOfRows`)·필드 케이싱 확정한 뒤 `ingest/adapters/datagokr-restaurant.ts` 배선(추측 코드 금지). 좌표는 기존 toWgs84(EPSG:5174)로 변환. 대량(~210만행)이라 초기 벌크 시드 + 지역(opnSfTeamCode) 증분.
+### 음식점 결정 — 배선 완료 (2026-06-23, 실키 확정)
+- **엔드포인트는 odcloud이 아니라 표준 data.go.kr REST**: `https://apis.data.go.kr/1741000/general_restaurants/info` (오퍼레이션 `/info`). 인증 = **serviceKey 쿼리**파라미터(`DATA_GO_KR_API_KEY`, 식약처 path키와 별개). 파라미터 `pageNo·numOfRows(≤100)·returnType=json`. 응답 `response.header.resultCode("0" 성공)` / `response.body.items[]` / `totalCount`(=**2,282,129**).
+- **실응답 필드 매핑 확정**(`mapRestaurantRow`): `MNG_NO`→MGTNO(PK)·`BPLC_NM`→상호·`ROAD_NM_ADDR`/`LOTNO_ADDR`→주소·`CRD_INFO_X/Y`→좌표·`SALS_STTS_NM`→영업상태·`BZSTAT_SE_NM`→업태·`LCPMT_YMD`→인허가일. 좌표는 **EPSG:5174 확정**(서울 37.5/127, 부산 35.1/129 정상 변환).
+- **어댑터 배선 완료**: `ingest/adapters/datagokr-restaurant.ts`(페이지네이션·관리번호 중복제거·재시도). `pipeline/live.ts`가 `DATA_GO_KR_API_KEY` 있으면 수집, `buildSnapshot`의 기존 라멘 shop-filter로 필터. 테스트 +7.
+- **서버사이드 업태/지역 필터 없음 + 쿼터 10k콜/일**: 밀도 측정 0.21%(만건당 21개) → 전국 추정 **~4,800 라멘**. 전량 스캔(22.8k콜)은 일일 쿼터 초과 → `SNAPSHOT_SHOP_MAX_ROWS`로 부분 스캔(명시적 opt-in). **전량 커버는 벌크파일(file.localdata.go.kr) 시드가 후속.**

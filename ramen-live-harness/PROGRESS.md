@@ -59,7 +59,7 @@
 
 ## 미해결(실데이터 단계 보강 필요)
 - **영양 조인 전략(Q2, ADR-0007)**: ✅결정 = 옵션②(보류) 당장. 추가 시 **I2790 아님**(구버전~2023·미인가) → data.go.kr 「전국통합식품영양성분정보(가공식품) 표준데이터」 활용신청 + **신규 어댑터**(다른 엔드포인트/필드) → 기존 식품명+제조사 매칭에 연결. (식약처는 서비스별 활용신청; data.go.kr 15127578은 LOD라 OpenAPI 신청 불가.)
-- **음식점 라이브(ADR-0007, 조사완료)**: LOCALDATA 폐지 → 정본 data.go.kr `15154916`(일반음식점). **블로킹 = 새 data.go.kr serviceKey 발급**(15154916 활용신청·자동승인). 키 확보 후 라이브 1건으로 odcloud 경로 확정→어댑터 배선, 좌표 EPSG:5174 변환. (현 라이브 shops=0)
+- **음식점 라이브(ADR-0007) — 배선 완료**: data.go.kr `apis.data.go.kr/1741000/general_restaurants/info`(serviceKey 쿼리, `DATA_GO_KR_API_KEY`) 실키 확정·`datagokr-restaurant.ts` 배선·테스트. 좌표 EPSG:5174 변환 검증(서울/부산 정상). 밀도 0.21%→전국 ~4,800 라멘. **남은 것**: 서버필터 없음+쿼터로 부분 스캔만(SNAPSHOT_SHOP_MAX_ROWS) → 전량은 벌크파일(file.localdata.go.kr) 시드 후속. 첫 스캔 진행 중.
 - **CI 자동배포 활성화**: `.github/workflows/snapshot.yml` 준비됨(검증 OK). repo Settings→Secrets에 **`DATA_GO_KR_SERVICE_KEY`** 추가하면 주간/수동 자동배포 동작(미설정 시 가드로 중단).
 - ✅**라이브 1건 확정(런북 9) 완료(2026-06-22)**: I1250·I0490 envelope·필드명 실키 대조 일치, SERVICE_ID **I1250 확정**, 제품은 식품유형 서버필터 채택. I2790만 미승인.
 - 도메인 필터 보정 리스트는 현재 빈 시드 — **첫 실데이터 오탐 발견**: `천하일미 만능 클로렐라 면`(compact 후 '라면' 부분매칭) → exclude 후보. 라이브 표본으로 채움(제품·음식점 공통).

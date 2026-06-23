@@ -3,10 +3,12 @@
 // 네트워크 호출. 서비스키는 env에서만(INV-1).
 
 import {
+  fetchGeneralRestaurants,
   fetchTier1ProductData,
   loadServiceKey,
   NOODLE_FOOD_TYPES,
   type CorrectionList,
+  type RawRestaurant,
 } from "@ramen/ingest";
 import type { RawInputs } from "./build.js";
 
@@ -24,6 +26,11 @@ export interface LiveFetchOptions {
   /** 영양(I2790) 포함 여부(기본 true·미승인 시 자동 강등). false면 호출 자체 생략. */
   includeNutrition?: boolean;
   corrections?: CorrectionList;
+  /** data.go.kr 음식점 serviceKey(쿼리). 있으면 일반음식점 수집(라멘 필터는 joinShops). */
+  restaurantServiceKey?: string;
+  /** 음식점 수집 상한(전국 2.28M·서버필터 없음 → 명시적 상한 필수). */
+  restaurantMaxRows?: number;
+  shopCorrections?: CorrectionList;
 }
 
 /**
@@ -42,6 +49,16 @@ export async function fetchLiveRawInputs(opts: LiveFetchOptions = {}): Promise<R
     ...(opts.maxRows !== undefined ? { maxRows: opts.maxRows } : {}),
     ...(opts.productServiceId ? { productServiceId: opts.productServiceId } : {}),
   });
+  // 음식점(선택) — data.go.kr 키가 있으면 일반음식점 수집. 라멘 도메인 필터는 buildSnapshot(joinShops)에서.
+  let restaurants: RawRestaurant[] = [];
+  if (opts.restaurantServiceKey?.trim()) {
+    restaurants = await fetchGeneralRestaurants({
+      serviceKey: opts.restaurantServiceKey,
+      ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}),
+      ...(opts.restaurantMaxRows !== undefined ? { maxRows: opts.restaurantMaxRows } : {}),
+    });
+  }
+
   return {
     products,
     nutritions: [],
@@ -49,5 +66,7 @@ export async function fetchLiveRawInputs(opts: LiveFetchOptions = {}): Promise<R
     recalls,
     closures: [],
     corrections: opts.corrections ?? EMPTY_CORRECTIONS,
+    ...(restaurants.length > 0 ? { restaurants } : {}),
+    ...(opts.shopCorrections ? { shopCorrections: opts.shopCorrections } : {}),
   };
 }

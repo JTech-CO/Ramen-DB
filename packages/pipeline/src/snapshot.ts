@@ -31,11 +31,24 @@ async function resolveInputs(): Promise<{ inputs: RawInputs; mode: string }> {
       : undefined;
     // 영양(I2790) 미승인 시 SNAPSHOT_NUTRITION=off로 호출 자체를 생략(불필요한 실패·경고 회피).
     const includeNutrition = process.env.SNAPSHOT_NUTRITION !== "off";
+    // 음식점(data.go.kr): 키 + 명시적 상한(SNAPSHOT_SHOP_MAX_ROWS)이 둘 다 있을 때만 수집.
+    // 전국 2.28M·서버필터 없음 → 쿼터·시간 보호를 위해 명시적 opt-in.
+    const shopMaxRows = process.env.SNAPSHOT_SHOP_MAX_ROWS
+      ? Number(process.env.SNAPSHOT_SHOP_MAX_ROWS)
+      : undefined;
+    const restaurantServiceKey =
+      shopMaxRows !== undefined ? process.env.DATA_GO_KR_API_KEY?.trim() : undefined;
     const inputs = await fetchLiveRawInputs({
       includeNutrition,
       ...(maxRows !== undefined ? { maxRows } : {}),
+      ...(restaurantServiceKey ? { restaurantServiceKey } : {}),
+      ...(shopMaxRows !== undefined ? { restaurantMaxRows: shopMaxRows } : {}),
     });
-    return { inputs, mode: includeNutrition ? "live(식약처)" : "live(식약처·영양제외)" };
+    const shopsNote = restaurantServiceKey ? "+음식점" : "";
+    return {
+      inputs,
+      mode: `live(식약처${includeNutrition ? "" : "·영양제외"}${shopsNote})`,
+    };
   }
   return { inputs: SAMPLE_INPUTS, mode: "sample" };
 }
