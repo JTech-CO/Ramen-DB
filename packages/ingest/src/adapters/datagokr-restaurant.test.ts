@@ -131,6 +131,6 @@ describe("fetchGeneralRestaurants — 게이트웨이 장애 내성", () => {
     const { fn, state } = seqFetch(["throw"]); // 항상 실패
     const out = await fetchGeneralRestaurants({ serviceKey: "K", fetchImpl: fn, retries: 0 });
     expect(out).toEqual([]); // crash 아님
-    expect(state.calls).toBe(3); // 연속 3회 후 중단
+    expect(state.calls).toBe(6); // MAX_CONSECUTIVE_FAILURES 연속 후 중단
   });
 });

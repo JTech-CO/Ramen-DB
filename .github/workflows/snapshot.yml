@@ -30,11 +30,15 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - name: Tier1 라이브 스냅샷 (식약처 I1250+I0490)
+      - name: Tier1 라이브 스냅샷 (식약처 I1250+I0490 + 음식점)
         env:
           DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
           SNAPSHOT_NUTRITION: "off" # I2790(영양) 미승인 — 영양 제외(graceful degrade)
           SNAPSHOT_VERSION: live
+          # 음식점(선택): DATA_GO_KR_API_KEY 시크릿이 있으면 일반음식점 수집(off-peak일수록 커버리지↑).
+          # 게이트웨이가 깊은 페이지에서 서버 60s 타임아웃 → 부분 수집(전량은 벌크파일 후속).
+          DATA_GO_KR_API_KEY: ${{ secrets.DATA_GO_KR_API_KEY }}
+          SNAPSHOT_SHOP_MAX_ROWS: "10000"
         run: |
           if [ -z "$DATA_GO_KR_SERVICE_KEY" ]; then
             echo "::error::DATA_GO_KR_SERVICE_KEY 시크릿 미설정 — 샘플 데이터 배포 방지를 위해 중단합니다. (Repo Settings → Secrets and variables → Actions 에 추가)"

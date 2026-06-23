@@ -11,8 +11,9 @@ export const DATAGOKR_RESTAURANT_ENDPOINT =
   "https://apis.data.go.kr/1741000/general_restaurants/info";
 
 const PAGE_MAX = 100; // numOfRows 최대(가이드)
-const REQUEST_TIMEOUT_MS = 30_000; // 게이트웨이가 간헐적으로 멈춤 → 짧게 끊고 다음 페이지로
-const MAX_CONSECUTIVE_FAILURES = 3; // 연속 실패 시 게이트웨이 장애로 보고 중단(부분 결과 유지)
+// 게이트웨이는 깊은 오프셋 페이지에서 30~60s까지 걸린다(2.28M 테이블) → 넉넉히 90s, 짧으면 정상 응답을 끊는다.
+const REQUEST_TIMEOUT_MS = 90_000;
+const MAX_CONSECUTIVE_FAILURES = 6; // 느린 구간을 견디고, 진짜 장애일 때만 부분 결과로 중단
 
 export interface DataGoKrRestaurantOptions {
   /** data.go.kr serviceKey(쿼리). env에서만(INV-1). */
