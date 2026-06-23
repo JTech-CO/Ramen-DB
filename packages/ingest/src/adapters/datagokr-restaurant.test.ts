@@ -100,10 +100,37 @@ describe("fetchGeneralRestaurants — 페이지네이션·상한·중복·오류
     expect(out.map((r) => r.MGTNO)).toEqual(["9"]);
   });
 
-  it("resultCode 오류는 throw", async () => {
+  it("resultCode 오류는 첫 페이지면 throw", async () => {
     const { fn } = mockFetch([envelope([], 0, "30")]);
     await expect(
       fetchGeneralRestaurants({ serviceKey: "BAD", fetchImpl: fn, retries: 0 }),
     ).rejects.toThrow(/30/);
+  });
+});
+
+/** 동작 시퀀스 mock: "throw" 또는 payload를 호출 순서대로 반환. */
+function seqFetch(behaviors: (unknown | "throw")[]) {
+  const state = { calls: 0 };
+  const fn = (async () => {
+    const b = behaviors[Math.min(state.calls, behaviors.length - 1)];
+    state.calls++;
+    if (b === "throw") throw new Error("simulated timeout");
+    return { ok: true, status: 200, statusText: "OK", json: async () => b } as unknown as Response;
+  }) as typeof fetch;
+  return { fn, state };
+}
+
+describe("fetchGeneralRestaurants — 게이트웨이 장애 내성", () => {
+  it("한 페이지 실패는 건너뛰고 계속(전체 중단 안 함)", async () => {
+    const { fn } = seqFetch(["throw", envelope([{ MNG_NO: "5", BPLC_NM: "z" }], 1)]);
+    const out = await fetchGeneralRestaurants({ serviceKey: "K", fetchImpl: fn, retries: 0 });
+    expect(out.map((r) => r.MGTNO)).toEqual(["5"]); // page1 실패 스킵, page2 수집 후 마지막
+  });
+
+  it("연속 실패 한계 초과 시 부분 결과로 중단(throw 안 함)", async () => {
+    const { fn, state } = seqFetch(["throw"]); // 항상 실패
+    const out = await fetchGeneralRestaurants({ serviceKey: "K", fetchImpl: fn, retries: 0 });
+    expect(out).toEqual([]); // crash 아님
+    expect(state.calls).toBe(3); // 연속 3회 후 중단
   });
 });

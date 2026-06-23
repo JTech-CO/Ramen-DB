@@ -11,7 +11,8 @@ export const DATAGOKR_RESTAURANT_ENDPOINT =
   "https://apis.data.go.kr/1741000/general_restaurants/info";
 
 const PAGE_MAX = 100; // numOfRows 최대(가이드)
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 30_000; // 게이트웨이가 간헐적으로 멈춤 → 짧게 끊고 다음 페이지로
+const MAX_CONSECUTIVE_FAILURES = 3; // 연속 실패 시 게이트웨이 장애로 보고 중단(부분 결과 유지)
 
 export interface DataGoKrRestaurantOptions {
   /** data.go.kr serviceKey(쿼리). env에서만(INV-1). */
@@ -119,20 +120,39 @@ export async function fetchGeneralRestaurants(
   const maxRows = opts.maxRows ?? 100_000;
   const endpoint = opts.endpoint ?? DATAGOKR_RESTAURANT_ENDPOINT;
   const timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT_MS;
-  const retries = opts.retries ?? 3;
+  const retries = opts.retries ?? 1;
   const retryDelayMs = opts.retryDelayMs ?? 500;
   const key = encodeURIComponent(opts.serviceKey);
 
   const out: RawRestaurant[] = [];
   const seen = new Set<string>();
+  let consecutiveFailures = 0;
   for (let pageNo = 1; out.length < maxRows; pageNo++) {
     const url = `${endpoint}?serviceKey=${key}&pageNo=${pageNo}&numOfRows=${numOfRows}&returnType=json`;
-    const json = await fetchPage(url, doFetch, timeoutMs, retries, retryDelayMs);
+    let json: ApiResponse;
+    try {
+      json = await fetchPage(url, doFetch, timeoutMs, retries, retryDelayMs);
+      consecutiveFailures = 0;
+    } catch (e) {
+      // 한 페이지가 재시도까지 실패해도 전체 스캔을 죽이지 않는다 — 건너뛰고 다음 페이지로.
+      // 연속 실패가 한계를 넘으면 게이트웨이 장애로 보고 부분 결과로 중단한다.
+      consecutiveFailures++;
+      process.stderr.write(
+        `[ingest] 일반음식점 page ${pageNo} 실패(${consecutiveFailures}연속, 수집 ${out.length}건): ${e instanceof Error ? e.message : e}\n`,
+      );
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        process.stderr.write(`[ingest] 연속 실패 ${MAX_CONSECUTIVE_FAILURES}회 — 부분 결과 ${out.length}건으로 중단\n`);
+        break;
+      }
+      continue;
+    }
     const code = json.response?.header?.resultCode;
     if (code !== undefined && code !== "0" && code !== "00") {
-      throw new Error(
-        `data.go.kr 일반음식점 오류 ${code}: ${json.response?.header?.resultMsg ?? ""}`,
-      );
+      const msg = `data.go.kr 일반음식점 오류 ${code}: ${json.response?.header?.resultMsg ?? ""}`;
+      // 첫 페이지부터 오류면 설정 문제(키·승인)로 보고 throw. 수집 중이면 쿼터초과 등으로 보고 부분 중단.
+      if (out.length === 0) throw new Error(msg);
+      process.stderr.write(`[ingest] ${msg} — 부분 결과 ${out.length}건으로 중단\n`);
+      break;
     }
     const rows = extractRows(json);
     if (rows.length === 0) break;
