@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { RamenProduct } from "@ramen/core-domain";
+import type { RamenProduct, RamenShop } from "@ramen/core-domain";
 import {
   buildSearchIndex,
+  buildShopIndex,
   dedupeProducts,
   filterProducts,
   manufacturerFacets,
   paginate,
+  shopRegion,
   sortProducts,
   statusFacets,
 } from "./query.js";
@@ -138,5 +140,28 @@ describe("dedupeProducts — 동일 (제품명+제조사명) 대표 1건", () =>
     const onSale = p({ id: "1", name: "X", manufacturerName: "M", status: "ON_SALE" });
     const recalled = p({ id: "2", name: "X", manufacturerName: "M", status: "RECALLED" });
     expect(dedupeProducts([onSale, recalled])[0]!.id).toBe("2"); // 회수가 대표
+  });
+});
+
+describe("shopRegion + buildShopIndex (음식점 지역)", () => {
+  it("주소 → 시/도 지역", () => {
+    expect(shopRegion("서울특별시 종로구 ...")).toBe("서울");
+    expect(shopRegion("경기도 성남시 ...")).toBe("경기");
+    expect(shopRegion("충청남도 당진시 ...")).toBe("충남");
+    expect(shopRegion("제주특별자치도 서귀포시 ...")).toBe("제주");
+    expect(shopRegion("강원특별자치도 춘천시 ...")).toBe("강원");
+    expect(shopRegion("우주 ...")).toBe("기타");
+  });
+  it("buildShopIndex: 경량 필드 + 지역 + 좌표 보존", () => {
+    const shops: RamenShop[] = [
+      { id: "b", name: "나라멘", address: "부산광역시 ...", businessStatus: "ACTIVE", category: "일식", lat: 35.1, lng: 129.1, source: "RESTAURANT" },
+      { id: "a", name: "가라멘", address: "서울특별시 ...", businessStatus: "CLOSED", category: "분식", source: "RESTAURANT" },
+    ];
+    const idx = buildShopIndex(shops);
+    expect(idx.map((e) => e.name)).toEqual(["가라멘", "나라멘"]); // 이름순
+    expect(idx.find((e) => e.id === "b")).toEqual({
+      id: "b", name: "나라멘", cat: "일식", region: "부산", addr: "부산광역시 ...", status: "ACTIVE", lat: 35.1, lng: 129.1,
+    });
+    expect(idx.find((e) => e.id === "a")!.lat).toBeUndefined(); // 좌표 없으면 생략
   });
 });

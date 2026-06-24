@@ -5,13 +5,15 @@ import { COUPANG_PARTNERS_DISCLOSURE } from "../tier2/disclosure.js";
 import {
   pageShell,
   renderCuration,
+  renderHero,
   renderNutrition,
   renderPagination,
   renderPriceSection,
+  renderProductAppPage,
   renderProductCard,
   renderProductDetail,
   renderRecipe,
-  renderSearchPage,
+  renderShopAppPage,
   renderShop,
   renderStatus,
 } from "./render.js";
@@ -246,19 +248,40 @@ describe("renderPagination", () => {
     expect(html).toContain('href="products-3.html"');
     expect(html).toContain('href="index.html"'); // 1페이지 href
   });
-  it("먼 페이지: 생략(…) 포함", () => {
-    expect(renderPagination(5, 10, href)).toContain("…");
+  it("점프 입력(가운데 페이지 직접 이동) + 끝번호", () => {
+    const html = renderPagination(35, 49, href, { prefix: "products-", suffix: ".html" });
+    expect(html).toContain('class="pg-jump"');
+    expect(html).toContain('value="35"'); // 현재 페이지가 입력값
+    expect(html).toContain("/ 49"); // 끝번호 표시
+    expect(html).toContain('href="products-49.html"'); // 끝 링크
+    expect(html).not.toContain("…"); // windowed 생략 제거
   });
 });
 
-describe("renderSearchPage", () => {
-  it("검색 컨트롤 + search.js + noscript 폴백", () => {
-    const html = renderSearchPage();
-    expect(html).toContain('id="q"');
-    expect(html).toContain('id="controls"');
-    expect(html).toContain('src="search.js"');
+describe("renderHero + 검색·필터 앱 페이지", () => {
+  const counts = { products: 872, shops: 2917 };
+  it("히어로: 사이트 설명 + 통계(천단위)", () => {
+    const html = renderHero("product", counts);
+    expect(html).toContain("Ramen-DB");
+    expect(html).toContain("2,917"); // 천단위 포맷
+    expect(html).toContain("872");
+    expect(html).toContain("공공데이터");
+  });
+  it("제품 앱: 검색·필터 컨트롤 + app.js + noscript + 히어로", () => {
+    const html = renderProductAppPage(counts);
+    expect(html).toContain('id="q"'); // 검색 통합
+    expect(html).toContain('src="app.js"');
+    expect(html).toContain('type:"product"');
     expect(html).toContain("<noscript>");
-    expect(html).toContain("판매중"); // status 옵션 라벨
+    expect(html).toContain("판매중"); // 상태 옵션
+    expect(html).not.toContain("search.html"); // 검색 탭 제거
+  });
+  it("음식점 앱: 지역 필터 + 즐겨찾기 + app.js", () => {
+    const html = renderShopAppPage(counts);
+    expect(html).toContain('id="rg"'); // 지역
+    expect(html).toContain('id="favonly"'); // 즐겨찾기
+    expect(html).toContain("서울"); // 지역 옵션
+    expect(html).toContain('type:"shop"');
   });
 });
 

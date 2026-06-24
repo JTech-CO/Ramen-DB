@@ -14,7 +14,13 @@ import { attributionLabel } from "@ramen/shared";
 import type { AffiliateView } from "../tier2/affiliate-view.js";
 import { hasAffiliate } from "../tier2/affiliate-view.js";
 import type { Page } from "../catalog/query.js";
-import { PACKAGE_LABEL, STATUS_LABEL } from "../catalog/query.js";
+import { PACKAGE_LABEL, SHOP_REGION_ORDER, STATUS_LABEL } from "../catalog/query.js";
+
+/** 헤더/히어로 통계 — 스냅샷 규모. */
+export interface SiteCounts {
+  products: number;
+  shops: number;
+}
 import { escapeAttr, escapeHtml } from "./escape.js";
 import { STYLES } from "./styles.js";
 
@@ -201,25 +207,61 @@ export function pageShell(title: string, body: string): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
+<meta name="description" content="식약처·행정안전부 공공데이터로 만든 전국 라면 제품·라멘 음식점 데이터베이스. 판매상태·영양·지도·검색.">
 <style>${STYLES}</style>
 </head>
 <body>
 <header class="site"><div class="wrap">
   <a class="brand" href="index.html">Ramen-DB</a>
-  <nav><a href="index.html">제품</a> <a href="search.html">검색</a> <a href="shops.html">음식점</a></nav>
-  <span class="muted">국내 라면 통합 데이터</span>
+  <nav><a href="index.html">제품</a> <a href="shops.html">음식점</a></nav>
+  <span class="muted">전국 라면·라멘 데이터베이스</span>
 </div></header>
 <main><div class="wrap">${body}</div></main>
-<footer class="site"><div class="wrap">출처: 식품의약품안전처·행정안전부 공공데이터. 가격·제휴는 실시간 조회(비영속).</div></footer>
+<footer class="site"><div class="wrap">출처: 식품의약품안전처·행정안전부 공공데이터. 가격·제휴는 실시간 조회(비영속). · <a href="products-1.html">제품 전체목록</a> · <a href="shops-1.html">음식점 전체목록</a></div></footer>
 </body>
 </html>`;
 }
 
-/** 페이지네이션 내비(windowed). totalPages<=1이면 빈 문자열. */
+/** 사이트 소개(히어로) — 무엇을 하는 곳인지 한눈에. 별도 메인페이지 없이 목록 상단에 둔다. */
+export function renderHero(kind: "product" | "shop", counts: SiteCounts): string {
+  const fmt = (n: number): string => n.toLocaleString("ko-KR");
+  const intro =
+    kind === "product"
+      ? "봉지·컵 라면을 제품명·제조사로 검색하고 판매상태·영양 정보를 확인하세요."
+      : "전국 라멘·라면 음식점을 지역별로 찾고, 즐겨찾기에 담아 지도로 바로 여세요.";
+  return `<section class="hero">
+  <h1>Ramen-DB — 전국 라면·라멘 데이터베이스</h1>
+  <div class="stats">
+    <span class="stat"><b>${fmt(counts.products)}</b><span>라면 제품</span></span>
+    <span class="stat"><b>${fmt(counts.shops)}</b><span>라멘 음식점</span></span>
+  </div>
+  <p>${escapeHtml(intro)}</p>
+  <p class="sub">식품의약품안전처·행정안전부 공공데이터 기반 · 정보 제공용</p>
+</section>`;
+}
+
+/** 페이지 점프 입력(가운데 페이지 직접 이동). 정적 페이지에서만 렌더(jump 패턴 제공 시). */
+function renderPageJump(
+  page: number,
+  totalPages: number,
+  jump?: { prefix: string; suffix: string },
+): string {
+  if (!jump) return "";
+  const go =
+    `var n=Math.min(Math.max(1,parseInt(this.pg.value,10)||1),${totalPages});` +
+    `location.href=${JSON.stringify(jump.prefix)}+n+${JSON.stringify(jump.suffix)};return false;`;
+  return `<form class="pg-jump" onsubmit="${escapeAttr(go)}"><input name="pg" type="number" min="1" max="${totalPages}" value="${page}" aria-label="페이지 번호로 이동"><span class="of">/ ${totalPages}</span><button type="submit">이동</button></form>`;
+}
+
+/**
+ * 페이지네이션 — 1, 2, [숫자입력], 끝번호 + 이전/다음. 가운데 페이지(예: 35)도 입력으로 바로 이동.
+ * jump 미지정(앱 동적 페이저 등) 시 입력 박스 생략. totalPages<=1이면 빈 문자열.
+ */
 export function renderPagination(
   page: number,
   totalPages: number,
   hrefFor: (p: number) => string,
+  jump?: { prefix: string; suffix: string },
 ): string {
   if (totalPages <= 1) return "";
   const link = (p: number, label: string, current = false): string =>
@@ -228,55 +270,83 @@ export function renderPagination(
       : `<a class="page" href="${escapeAttr(hrefFor(p))}">${escapeHtml(label)}</a>`;
   const parts: string[] = [];
   if (page > 1) parts.push(link(page - 1, "이전"));
-  const wanted = [...new Set([1, page - 1, page, page + 1, totalPages])]
-    .filter((p) => p >= 1 && p <= totalPages)
-    .sort((a, b) => a - b);
-  let prev = 0;
-  for (const p of wanted) {
-    if (prev && p - prev > 1) parts.push(`<span class="page gap" aria-hidden="true">…</span>`);
-    parts.push(link(p, String(p), p === page));
-    prev = p;
-  }
+  parts.push(link(1, "1", page === 1));
+  if (totalPages >= 2) parts.push(link(2, "2", page === 2));
+  parts.push(renderPageJump(page, totalPages, jump));
+  if (totalPages > 2) parts.push(link(totalPages, String(totalPages), page === totalPages));
   if (page < totalPages) parts.push(link(page + 1, "다음"));
   return `<nav class="pagination" aria-label="페이지 이동">${parts.join("")}</nav>`;
 }
 
-export function renderCatalogPage(page: Page<RamenProduct>, hrefFor: (p: number) => string): string {
-  const body = `<h1>라면 제품</h1>
-<p class="meta">총 ${page.total}개 · ${page.page}/${page.totalPages} 페이지 · <a href="search.html">검색·필터</a></p>
+/** 정적 제품 목록 페이지(무JS·크롤용). 히어로 + 그리드 + 점프 페이지네이션. */
+export function renderCatalogPage(
+  page: Page<RamenProduct>,
+  hrefFor: (p: number) => string,
+  counts: SiteCounts,
+): string {
+  const body = `${renderHero("product", counts)}
+<h2 class="section">제품 전체 목록 · ${page.total.toLocaleString("ko-KR")}개 (${page.page}/${page.totalPages})</h2>
 ${renderProductList(page.items)}
-${renderPagination(page.page, page.totalPages, hrefFor)}`;
-  return pageShell("라면 제품 — Ramen-DB", body);
+${renderPagination(page.page, page.totalPages, hrefFor, { prefix: "products-", suffix: ".html" })}`;
+  return pageShell("라면 제품 목록 — Ramen-DB", body);
 }
 
-export function renderShopsPage(page: Page<RamenShop>, hrefFor: (p: number) => string): string {
-  const body = `<h1>라면·라멘 음식점</h1>
-<p class="meta">총 ${page.total}곳 · ${page.page}/${page.totalPages} 페이지</p>
+/** 정적 음식점 목록 페이지(무JS·크롤용). */
+export function renderShopsPage(
+  page: Page<RamenShop>,
+  hrefFor: (p: number) => string,
+  counts: SiteCounts,
+): string {
+  const body = `${renderHero("shop", counts)}
+<h2 class="section">음식점 전체 목록 · ${page.total.toLocaleString("ko-KR")}곳 (${page.page}/${page.totalPages})</h2>
 ${renderShopList(page.items)}
-${renderPagination(page.page, page.totalPages, hrefFor)}`;
-  return pageShell("라면·라멘 음식점 — Ramen-DB", body);
+${renderPagination(page.page, page.totalPages, hrefFor, { prefix: "shops-", suffix: ".html" })}`;
+  return pageShell("라멘 음식점 목록 — Ramen-DB", body);
 }
 
-/** 클라이언트 검색·필터 페이지(shell). 로직은 search.js가 search-index.json을 소비. */
-export function renderSearchPage(): string {
+/** 제품 검색·필터 앱(index.html). app.js가 search-index.json을 소비. noscript는 정적 목록으로. */
+export function renderProductAppPage(counts: SiteCounts): string {
   const statusOpts = Object.entries(STATUS_LABEL)
     .map(([v, l]) => `<option value="${escapeAttr(v)}">${escapeHtml(l)}</option>`)
     .join("");
   const pkgOpts = Object.entries(PACKAGE_LABEL)
     .map(([v, l]) => `<option value="${escapeAttr(v)}">${escapeHtml(l)}</option>`)
     .join("");
-  const body = `<h1>제품 검색</h1>
-<form id="controls" class="controls" role="search" onsubmit="return false">
-  <input id="q" type="search" placeholder="제품명 검색" aria-label="제품명 검색" autocomplete="off">
-  <select id="st" aria-label="판매상태 필터"><option value="">상태 전체</option>${statusOpts}</select>
-  <select id="pk" aria-label="포장 필터"><option value="">포장 전체</option>${pkgOpts}</select>
-  <select id="sort" aria-label="정렬"><option value="name">이름순</option><option value="kcal">칼로리순</option></select>
+  const body = `${renderHero("product", counts)}
+<form class="toolbar" role="search" onsubmit="return false">
+  <input id="q" type="search" placeholder="제품명·제조사 검색" aria-label="제품명·제조사 검색" autocomplete="off">
+  <select id="st" aria-label="판매상태"><option value="">상태 전체</option>${statusOpts}</select>
+  <select id="pk" aria-label="포장"><option value="">포장 전체</option>${pkgOpts}</select>
+  <select id="sort" aria-label="정렬"><option value="name">이름순</option><option value="kcal">칼로리 낮은순</option></select>
 </form>
-<p class="meta"><span id="count">…</span> <noscript>(검색은 JavaScript가 필요합니다. <a href="index.html">전체 목록 보기</a>)</noscript></p>
-<div id="results" class="grid"></div>
+<p class="count"><span id="count">불러오는 중…</span></p>
+<div id="results" class="grid" aria-live="polite"></div>
 <nav id="pager" class="pagination" aria-label="페이지 이동"></nav>
-<script src="search.js" defer></script>`;
-  return pageShell("제품 검색 — Ramen-DB", body);
+<noscript><p class="count">검색은 JavaScript가 필요합니다. <a href="products-1.html">제품 전체 목록 보기</a></p></noscript>
+<script>window.__APP__={type:"product",data:"search-index.json",per:60};</script>
+<script src="app.js" defer></script>`;
+  return pageShell("라면 제품 — Ramen-DB", body);
+}
+
+/** 음식점 검색·지역·즐겨찾기 앱(shops.html). app.js가 shops-index.json을 소비. */
+export function renderShopAppPage(counts: SiteCounts): string {
+  const regionOpts = SHOP_REGION_ORDER.map(
+    (r) => `<option value="${escapeAttr(r)}">${escapeHtml(r)}</option>`,
+  ).join("");
+  const body = `${renderHero("shop", counts)}
+<form class="toolbar" role="search" onsubmit="return false">
+  <input id="q" type="search" placeholder="음식점명·주소 검색" aria-label="음식점명·주소 검색" autocomplete="off">
+  <select id="rg" aria-label="지역"><option value="">지역 전체</option>${regionOpts}</select>
+  <select id="sort" aria-label="정렬"><option value="region">지역순</option><option value="name">이름순</option></select>
+  <label class="chk"><input type="checkbox" id="favonly"> ★ 즐겨찾기만</label>
+</form>
+<p class="count"><span id="count">불러오는 중…</span></p>
+<div id="results" class="shoplist" aria-live="polite"></div>
+<nav id="pager" class="pagination" aria-label="페이지 이동"></nav>
+<noscript><p class="count">검색은 JavaScript가 필요합니다. <a href="shops-1.html">음식점 전체 목록 보기</a></p></noscript>
+<script>window.__APP__={type:"shop",data:"shops-index.json",per:60};</script>
+<script src="app.js" defer></script>`;
+  return pageShell("라멘 음식점 — Ramen-DB", body);
 }
 
 export function renderDetailPage(

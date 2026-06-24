@@ -1,7 +1,13 @@
 // 카탈로그 쿼리(순수) — 필터·정렬·페이지네이션·검색 인덱스·패싯. 대량 데이터 대비 토대.
 // 빌드타임(정적 페이지)과 클라이언트 검색이 동일 개념을 공유한다.
 
-import type { PackageType, ProductStatus, RamenProduct, RamenShop } from "@ramen/core-domain";
+import type {
+  BusinessStatus,
+  PackageType,
+  ProductStatus,
+  RamenProduct,
+  RamenShop,
+} from "@ramen/core-domain";
 import { compareCodeUnits } from "@ramen/shared";
 
 /** 음식점 이름순 정렬(동점 PK). 결정론. */
@@ -168,6 +174,68 @@ export function buildSearchIndex(products: RamenProduct[]): SearchEntry[] {
     pkg: p.packageType,
     status: p.status,
     kcal: p.nutrition?.energyKcal ?? null,
+  }));
+}
+
+// ── 음식점 검색 인덱스 + 지역(시/도) ──
+
+const REGION_MATCHERS: Array<[RegExp, string]> = [
+  [/^서울/, "서울"],
+  [/^부산/, "부산"],
+  [/^대구/, "대구"],
+  [/^인천/, "인천"],
+  [/^광주/, "광주"],
+  [/^대전/, "대전"],
+  [/^울산/, "울산"],
+  [/^세종/, "세종"],
+  [/^경기/, "경기"],
+  [/^강원/, "강원"],
+  [/^충청북도|^충북/, "충북"],
+  [/^충청남도|^충남/, "충남"],
+  [/^전라북도|^전북/, "전북"],
+  [/^전라남도|^전남/, "전남"],
+  [/^경상북도|^경북/, "경북"],
+  [/^경상남도|^경남/, "경남"],
+  [/^제주/, "제주"],
+];
+
+/** 광역시·도 순서(지역 정렬·필터 옵션). */
+export const SHOP_REGION_ORDER = [
+  "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+  "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주", "기타",
+];
+
+/** 주소에서 시/도 지역 추출(매칭 없으면 기타). */
+export function shopRegion(address: string): string {
+  const a = address.trim();
+  for (const [re, region] of REGION_MATCHERS) if (re.test(a)) return region;
+  return "기타";
+}
+
+/** 음식점 클라이언트 인덱스(경량). 이름순 정렬·지역 부여. */
+export interface ShopEntry {
+  id: string;
+  name: string;
+  /** 업태 */
+  cat: string;
+  /** 시/도 지역 */
+  region: string;
+  addr: string;
+  status: BusinessStatus;
+  lat?: number;
+  lng?: number;
+}
+
+export function buildShopIndex(shops: RamenShop[]): ShopEntry[] {
+  return sortShops(shops).map((s) => ({
+    id: s.id,
+    name: s.name,
+    cat: s.category ?? "",
+    region: shopRegion(s.address),
+    addr: s.address,
+    status: s.businessStatus,
+    ...(s.lat !== undefined ? { lat: s.lat } : {}),
+    ...(s.lng !== undefined ? { lng: s.lng } : {}),
   }));
 }
 

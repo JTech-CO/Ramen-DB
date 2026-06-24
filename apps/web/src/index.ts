@@ -25,13 +25,23 @@ export {
   renderShopsPage,
   renderDetailPage,
   renderPagination,
-  renderSearchPage,
+  renderHero,
+  renderProductAppPage,
+  renderShopAppPage,
   productHref,
 } from "./view/render.js";
+export type { SiteCounts } from "./view/render.js";
 export { escapeHtml } from "./view/escape.js";
 
 // 카탈로그 쿼리(M6+) — 필터·정렬·페이지네이션·검색 인덱스.
-export type { Page, ProductFilter, ProductSortKey, Facet, SearchEntry } from "./catalog/query.js";
+export type {
+  Page,
+  ProductFilter,
+  ProductSortKey,
+  Facet,
+  SearchEntry,
+  ShopEntry,
+} from "./catalog/query.js";
 export {
   paginate,
   filterProducts,
@@ -40,6 +50,9 @@ export {
   manufacturerFacets,
   statusFacets,
   buildSearchIndex,
+  buildShopIndex,
+  shopRegion,
+  SHOP_REGION_ORDER,
   STATUS_LABEL,
   PACKAGE_LABEL,
 } from "./catalog/query.js";

@@ -28,10 +28,11 @@ const C_APV = 2;
 const C_TRD = 3;
 const C_NAME = 8;
 const C_UPTAE = 9;
-const C_ROAD = 19;
+const C_ROAD = 19; // 도로명주소
 const C_DTL = 23;
 const C_X = 34;
 const C_Y = 35;
+const C_LOT = 36; // 지번주소(도로명 결측 시 폴백 — 지역 파싱·표시)
 
 /** CSV 한 줄 파싱(따옴표 필드 + "" 이스케이프). 임베디드 개행 없음 가정(LOCALDATA 주소). */
 function parseLine(line) {
@@ -61,6 +62,7 @@ function toRaw(f) {
   const s = (i) => (f[i] ?? "").trim();
   const raw = { MGTNO: s(C_MGTNO), BPLCNM: s(C_NAME) };
   const road = s(C_ROAD);
+  const lot = s(C_LOT);
   const x = s(C_X);
   const y = s(C_Y);
   const trd = s(C_TRD);
@@ -68,6 +70,7 @@ function toRaw(f) {
   const up = s(C_UPTAE);
   const apv = s(C_APV);
   if (road) raw.RDNWHLADDR = road;
+  if (lot) raw.SITEWHLADDR = lot;
   if (x) raw.X = x;
   if (y) raw.Y = y;
   if (trd) raw.TRDSTATENM = trd;

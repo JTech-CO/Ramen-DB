@@ -111,8 +111,39 @@ table.nutri td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .pagination a.page:hover { border-color: var(--accent); text-decoration: none; }
 .pagination .page.current { border-color: var(--accent); color: var(--accent); font-weight: 600; cursor: default; }
 .pagination .page.gap { border: 0; cursor: default; color: var(--muted); }
+/* 소개(히어로) — 이 사이트가 무엇인지 한눈에. flat surface + border(그림자·그라데이션 없음). */
+.hero { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+  padding: 20px 22px; margin: 0 0 24px; }
+.hero h1 { font-size: 26px; margin: 0 0 8px; line-height: 1.25; }
+.hero p { margin: 0 0 12px; color: var(--text); max-width: 60ch; }
+.hero p.sub { color: var(--muted); font-size: 14px; margin: 0; }
+.hero .stats { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0 0 12px; }
+.hero .stat { display: flex; align-items: baseline; gap: 6px; }
+.hero .stat b { font-size: 22px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.hero .stat span { font-size: 13px; color: var(--muted); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 16px; }
+.toolbar input, .toolbar select { font: inherit; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg); color: var(--text); }
+.toolbar input[type="search"] { flex: 1 1 240px; min-width: 0; }
+.toolbar label.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; }
+.count { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+/* 즐겨찾기 별(기능 토글). */
+.fav { border: 0; background: none; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted);
+  padding: 0 2px; }
+.fav[aria-pressed="true"] { color: var(--accent); }
+.shop .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.shop .region { font-size: 12px; color: var(--accent); font-weight: 600; }
+/* 페이지 점프 입력 — 가운데 페이지(예: 35) 직접 이동. */
+.pg-jump { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
+.pg-jump input { width: 56px; height: 32px; text-align: center; font: inherit; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg); color: var(--text); }
+.pg-jump .of { color: var(--muted); font-size: 13px; }
+.pg-jump button { height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); cursor: pointer; font: inherit; }
+.pg-jump button:hover { border-color: var(--accent); }
 footer.site { border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
 footer.site .wrap { padding: 20px var(--space); }
+footer.site a { color: var(--muted); text-decoration: underline; }
 @media (prefers-reduced-motion: no-preference) {
   a, button { transition: color 120ms ease-out; }
 }
