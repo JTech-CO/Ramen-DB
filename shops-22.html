@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>라멘 음식점 목록 — Ramen-DB</title>
+<meta name="description" content="식약처·행정안전부 공공데이터로 만든 전국 라면 제품·라멘 음식점 데이터베이스. 판매상태·영양·지도·검색.">
+<script>try{if(localStorage.getItem("ramendb:theme")==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}</script>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --border: #e4e4e7;
+  --text: #18181b;
+  --muted: #6b7280;
+  --accent: #b45309;            /* 단일 accent(따뜻한 갈색, 링크·포커스) */
+  --ok: #15803d;                /* 판매중 */
+  --warn: #b91c1c;              /* 판매중지/회수 (accent와 구분되는 적색) */
+  --idle: #71717a;             /* 단종 추정 */
+  --radius: 8px;
+  --space: 16px;
+  --maxw: 1040px;
+  color-scheme: light;
+}
+/* 다크모드(기본 라이트, 헤더 토글). 중성 그레이 + 동일 accent 계열. */
+:root[data-theme="dark"] {
+  --bg: #18181b;
+  --surface: #232327;
+  --border: #3f3f46;
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --accent: #fbbf24;
+  --ok: #4ade80;
+  --warn: #f87171;
+  --idle: #a1a1aa;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] .disclosure { background: #2a2113; border-color: #5a4520; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--space); }
+header.site { border-bottom: 1px solid var(--border); }
+header.site .wrap { display: flex; align-items: baseline; gap: 20px; padding-top: 18px; padding-bottom: 18px; flex-wrap: wrap; }
+.brand { font-size: 20px; font-weight: 600; color: var(--text); }
+.brand:hover { text-decoration: none; }
+header.site nav { display: flex; gap: 16px; font-size: 14px; }
+header.site .muted { color: var(--muted); font-size: 13px; margin-left: auto; }
+main { padding: 24px 0 64px; }
+main h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; font-weight: 600; }
+h2.section { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: none;
+  margin: 0 0 12px; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  padding: 14px 16px;
+}
+.card h3 { font-size: 16px; margin: 0 0 6px; font-weight: 600; }
+.card .meta { color: var(--muted); font-size: 13px; margin: 2px 0; }
+.kcal { font-variant-numeric: tabular-nums; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+.status .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.status.on .dot { background: var(--ok); }
+.status.halt .dot { background: var(--warn); }
+.status.disc .dot { background: var(--idle); }
+.status.disc { color: var(--muted); }
+.sources { color: var(--muted); font-size: 12px; margin-top: 8px; }
+table.nutri { border-collapse: collapse; width: 100%; max-width: 420px; font-size: 14px; }
+table.nutri th, table.nutri td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+table.nutri td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.detail { display: grid; gap: 24px; }
+.product-img { max-width: 240px; width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--radius); margin-top: 12px; }
+.price {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  background: var(--surface);
+}
+.disclosure {
+  font-size: 13px;
+  color: var(--text);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 0 0 12px;
+}
+.quote { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.quote .src { color: var(--muted); font-size: 12px; }
+.shoplist { display: grid; gap: 8px; }
+.shop { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; }
+.shop .name { font-weight: 600; }
+.shop .addr { color: var(--muted); font-size: 13px; }
+.badge { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+.recipe { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.recipe h3 { font-size: 16px; margin: 0 0 4px; font-weight: 600; }
+.recipe h4 { font-size: 13px; color: var(--muted); margin: 12px 0 4px; font-weight: 600; }
+.recipe ul, .recipe ol { margin: 0; padding-left: 20px; }
+.curation { border-bottom: 1px solid var(--border); padding: 8px 0; }
+.rating { font-weight: 600; font-variant-numeric: tabular-nums; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.controls input, .controls select {
+  font: inherit; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text);
+}
+.controls input { flex: 1 1 220px; min-width: 0; }
+.pagination { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 0; align-items: center; }
+.pagination .page {
+  display: inline-flex; align-items: center; min-width: 32px; height: 32px; justify-content: center;
+  padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+  color: var(--text); background: var(--bg); cursor: pointer;
+}
+.pagination a.page:hover { border-color: var(--accent); text-decoration: none; }
+.pagination .page.current { border-color: var(--accent); color: var(--accent); font-weight: 600; cursor: default; }
+.pagination .page.gap { border: 0; cursor: default; color: var(--muted); }
+/* 헤더 다크모드 토글. */
+.theme-toggle { margin-left: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  width: 34px; height: 34px; border-radius: 6px; cursor: pointer; font-size: 15px; line-height: 1; }
+.theme-toggle:hover { border-color: var(--accent); }
+/* 소개(히어로) — 무엇을 하는 곳인지 한눈에. flat surface + border(그림자·그라데이션 없음). */
+.hero { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+  padding: 20px 22px; margin: 0 0 24px; }
+.hero h1 { font-size: 25px; margin: 0 0 12px; line-height: 1.25; }
+.hero .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+.hero .stat { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); padding: 10px 16px; min-width: 132px; }
+.hero .stat b { font-size: 24px; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.hero .stat span { font-size: 12px; color: var(--muted); }
+.hero p { margin: 0 0 8px; color: var(--text); }
+.hero p.sub { color: var(--muted); font-size: 13px; margin: 0; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 16px; }
+.toolbar input, .toolbar select { font: inherit; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg); color: var(--text); }
+.toolbar input[type="search"] { flex: 1 1 240px; min-width: 0; }
+/* 즐겨찾기만 토글 버튼(On이면 초록). */
+.toggle-btn { font: inherit; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  padding: 7px 12px; border-radius: 6px; cursor: pointer; }
+.toggle-btn[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
+.count { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+/* 즐겨찾기 별(카드 토글). */
+.fav { border: 0; background: none; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted);
+  padding: 0 2px; }
+.fav[aria-pressed="true"] { color: var(--accent); }
+.shop .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.shop .region { font-size: 12px; color: var(--accent); font-weight: 600; }
+/* 제품 카드/상세 공식 이미지(있을 때만). */
+.card-img { display: block; width: 100%; height: 140px; object-fit: contain; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 6px; margin: 0 0 10px; }
+/* 호버 강조(미묘 — 그림자 없이 테두리만). */
+.card:hover, .shop:hover { border-color: var(--accent); }
+/* 페이지 점프 입력 — 가운데 페이지(예: 35) 직접 이동. */
+.pg-jump { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
+.pg-jump input { width: 56px; height: 32px; text-align: center; font: inherit; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg); color: var(--text); }
+.pg-jump .of { color: var(--muted); font-size: 13px; }
+.pg-jump button { height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); cursor: pointer; font: inherit; }
+.pg-jump button:hover { border-color: var(--accent); }
+footer.site { border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+footer.site .wrap { padding: 20px var(--space); }
+footer.site a { color: var(--muted); text-decoration: underline; }
+@media (prefers-reduced-motion: no-preference) {
+  a, button { transition: color 120ms ease-out; }
+  .card, .shop, .theme-toggle, .toggle-btn { transition: border-color 120ms ease-out, background 120ms ease-out; }
+}
+</style>
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <a class="brand" href="index.html">Ramen.DB</a>
+  <nav><a href="index.html">제품</a> <a href="shops.html">음식점</a></nav>
+  <span class="muted">전국 라면·라멘 데이터베이스</span>
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="라이트/다크 모드 전환" title="라이트/다크 모드">☾</button>
+</div></header>
+<main><div class="wrap"><section class="hero">
+  <h1>Ramen.DB :: 전국 라면/라멘 데이터베이스</h1>
+  <div class="stats">
+    <div class="stat"><b>872</b><span>라면 제품</span></div>
+    <div class="stat"><b>2,917</b><span>라멘 음식점</span></div>
+  </div>
+  <p>전국 라멘·라면 음식점을 지역별로 찾고, 즐겨찾기에 담아 네이버 지도로 바로 여세요.</p>
+  <p class="sub">식품의약품안전처·행정안전부 공공데이터 기반</p>
+</section>
+<h2 class="section">음식점 전체 목록 · 2,917곳 (22/49)</h2>
+<div class="shoplist"><article class="shop">
+  <div class="name">멘야산다이메 <span class="badge">일식</span></div>
+  <div class="addr">부산광역시 남구 용소로 48, 지상1층 (대연동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메 <span class="badge">일식</span></div>
+  <div class="addr">대구광역시 중구 중앙대로 406-5 (남일동, 지상1층)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메 <span class="badge">기타</span></div>
+  <div class="addr">경기도 수원시 팔달구 정조로791번길 13 (팔달로2가)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메 남포 <span class="badge">김밥(도시락)</span></div>
+  <div class="addr">부산광역시 중구 광복로49번길 3, 1층 (창선동1가)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94%20%EB%82%A8%ED%8F%AC?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메 남포 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메 대전점 <span class="badge">일식</span></div>
+  <div class="addr">대전광역시 서구 둔산로31번길 13, 1층 (둔산동, 1층일부)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94%20%EB%8C%80%EC%A0%84%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메 대전점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메 양산점 <span class="badge">일식</span></div>
+  <div class="addr">경상남도 양산시 물금읍 화합11길 28, 1층</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94%20%EC%96%91%EC%82%B0%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메 양산점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메 해운대점 <span class="badge">일식</span></div>
+  <div class="addr">부산광역시 해운대구 해운대로 802, B-108호 (좌동, 웅신시네아트)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94%20%ED%95%B4%EC%9A%B4%EB%8C%80%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메 해운대점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메(경성대점) <span class="badge">일식</span></div>
+  <div class="addr">부산광역시 남구 용소로14번길 20 (대연동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94(%EA%B2%BD%EC%84%B1%EB%8C%80%EC%A0%90)?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메(경성대점) 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메논현 <span class="badge">분식</span></div>
+  <div class="addr">서울특별시 강남구 강남대로114길 23, 101호 (논현동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94%EB%85%BC%ED%98%84?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메논현 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메목동점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 양천구 목동동로 293, 지상3층 308호 (목동, 41타워)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94%EB%AA%A9%EB%8F%99%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메목동점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산다이메일산점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 고양시 일산동구 강송로 33, 지하1층 일부호 (백석동, 일산요진와이시티 판매문화시설)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EB%8B%A4%EC%9D%B4%EB%A9%94%EC%9D%BC%EC%82%B0%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산다이메일산점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산초쿠 본점 <span class="badge">일식</span></div>
+  <div class="addr">강원특별자치도 삼척시 당저길 35-12, 2층 (당저동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EC%B4%88%EC%BF%A0%20%EB%B3%B8%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산초쿠 본점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야산초쿠(MENASANCHOKU)묵호 <span class="badge">일식</span></div>
+  <div class="addr">강원특별자치도 동해시 발한로 229-3, 1층 (발한동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%82%B0%EC%B4%88%EC%BF%A0(MENASANCHOKU)%EB%AC%B5%ED%98%B8?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야산초쿠(MENASANCHOKU)묵호 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야서울 롯데백화점 인천점 <span class="badge">일식</span></div>
+  <div class="addr">인천광역시 미추홀구 연남로 35, 인천종합터미널,롯데백화점(식품관) (관교동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%84%9C%EC%9A%B8%20%EB%A1%AF%EB%8D%B0%EB%B0%B1%ED%99%94%EC%A0%90%20%EC%9D%B8%EC%B2%9C%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야서울 롯데백화점 인천점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야서울 용산본점 <span class="badge">외국음식전문점(인도,태국등)</span></div>
+  <div class="addr">서울특별시 용산구 청파로 77, 원효전자상가 1층 100,103호 (한강로3가)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%84%9C%EC%9A%B8%20%EC%9A%A9%EC%82%B0%EB%B3%B8%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야서울 용산본점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야서울 용산아이파크몰점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 용산구 한강대로23길 55, 용산아이파크몰 7층 (한강로3가)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%84%9C%EC%9A%B8%20%EC%9A%A9%EC%82%B0%EC%95%84%EC%9D%B4%ED%8C%8C%ED%81%AC%EB%AA%B0%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야서울 용산아이파크몰점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야서울 중림점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 중구 서소문로6길 34, 성요셉아파트 3층 317호 (중림동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%84%9C%EC%9A%B8%20%EC%A4%91%EB%A6%BC%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야서울 중림점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야세븐 <span class="badge">한식</span></div>
+  <div class="addr">서울특별시 강동구 양재대로112길 45, 1층 (길동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%84%B8%EB%B8%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야세븐 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야세븐 운정점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 파주시 경의로1240번길 37-1, 명품프라자3차 111호 (와동동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%84%B8%EB%B8%90%20%EC%9A%B4%EC%A0%95%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야세븐 운정점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야세븐 진접점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 남양주시 진접읍 해밀예당1로 220, 엠타워 106호</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%84%B8%EB%B8%90%20%EC%A7%84%EC%A0%91%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야세븐 진접점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야센 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 강동구 양재대로81길 8, 1층 109호 (성내동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%84%BC?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야센 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야소바 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 서대문구 연세로2길 83, 성지빌딩 1층 (대현동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%86%8C%EB%B0%94?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야소바 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야쇼 <span class="badge">기타</span></div>
+  <div class="addr">충청남도 홍성군 홍북읍 의향로 267, JM골드스퀘어 1층 104호</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%87%BC?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야쇼 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야수 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 마포구 양화로 56, 동양한강트레벨 지1층 B103-2호 (서교동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%88%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야수 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야스미 <span class="badge">일식</span></div>
+  <div class="addr">울산광역시 남구 왕생로36번길 5, 1층 (달동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%8A%A4%EB%AF%B8?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야스미 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야시노기 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 서초구 주흥길 3, 108호, 109호 (반포동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%8B%9C%EB%85%B8%EA%B8%B0?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야시노기 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야시오 <span class="badge">기타</span></div>
+  <div class="addr">세종특별자치시 한누리대로 287, 세종포레뷰1 주건축물제1동 1층 103호 (나성동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%8B%9C%EC%98%A4?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야시오 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야시오리 <span class="badge">일식</span></div>
+  <div class="addr">경기도 부천시 원미구 부일로 714, 1층 103호 (역곡동, 역곡 S프러스 근린생활 빌딩)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%8B%9C%EC%98%A4%EB%A6%AC?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야시오리 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야신 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 성동구 독서당로51길 15, 1층 (금호동1가)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%8B%A0?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야신 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야아마노가와 <span class="badge">일식</span></div>
+  <div class="addr">경상남도 창원시 성산구 원이대로 678, 1층 101호 (상남동, 발머스한의원)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%95%84%EB%A7%88%EB%85%B8%EA%B0%80%EC%99%80?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야아마노가와 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야엔 <span class="badge">한식</span></div>
+  <div class="addr">부산광역시 부산진구 부전로 124 (부전동,(1층))</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%97%94?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야엔 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야연 <span class="badge">일식</span></div>
+  <div class="addr">경기도 수원시 영통구 광교중앙로 240, KJ 프라자 1층 103호 (하동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%97%B0?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야연 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야오지상 <span class="badge">일식</span></div>
+  <div class="addr">부산광역시 해운대구 해운대해변로359번길 27, 승훈빌딩 1층 일부호 (중동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%98%A4%EC%A7%80%EC%83%81?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야오지상 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야요시 <span class="badge">분식</span></div>
+  <div class="addr">서울특별시 마포구 광성로 31-1, 춘추가원 1층 (신수동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%9A%94%EC%8B%9C?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야요시 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야유메미루 강남점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 강남구 테헤란로4길 6, 강남역 센트럴 푸르지오 시티 지상1층 113호 (역삼동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%9C%A0%EB%A9%94%EB%AF%B8%EB%A3%A8%20%EA%B0%95%EB%82%A8%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야유메미루 강남점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야이로 <span class="badge">일식</span></div>
+  <div class="addr">경상북도 안동시 송천1길 146-9, 1층 (송천동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%9D%B4%EB%A1%9C?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야이로 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야이로(menyairo) <span class="badge">일식</span></div>
+  <div class="addr">경상북도 안동시 전거리2길 95, 1층 (용상동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%9D%B4%EB%A1%9C(menyairo)?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야이로(menyairo) 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야이찌방 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 영등포구 경인로 706, 한양빌딩 1층 103호 (문래동1가)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%9D%B4%EC%B0%8C%EB%B0%A9?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야이찌방 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야이찌방 고척점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 구로구 경인로47길 60, 1층 (고척동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%9D%B4%EC%B0%8C%EB%B0%A9%20%EA%B3%A0%EC%B2%99%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야이찌방 고척점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야이토 <span class="badge">기타</span></div>
+  <div class="addr">대전광역시 서구 대덕대로 189, 1층 일부 (둔산동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%9D%B4%ED%86%A0?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야이토 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야죽헌 <span class="badge">기타</span></div>
+  <div class="addr">강원특별자치도 강릉시 죽헌길 154-6, 1층 (죽헌동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%A3%BD%ED%97%8C?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야죽헌 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야준 <span class="badge">분식</span></div>
+  <div class="addr">서울특별시 마포구 동교로 128 (서교동, B동 1층 일부)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%A4%80?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야준 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야준 <span class="badge">기타</span></div>
+  <div class="addr">서울특별시 마포구 동교로 128, 1층 (서교동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%A4%80?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야준 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야츠키 <span class="badge">일식</span></div>
+  <div class="addr">경상남도 창원시 마산합포구 3·15대로 9, 월영 마크리움 주상복합 1층 (월남동5가)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%B8%A0%ED%82%A4?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야츠키 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야카야 <span class="badge">기타</span></div>
+  <div class="addr">경기도 광명시 일직로 43, GIDC L055호, L056호 일부호 (일직동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%B9%B4%EC%95%BC?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야카야 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야카오리 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 동대문구 답십리로68길 10, 1층 (장안동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%B9%B4%EC%98%A4%EB%A6%AC?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야카오리 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야카오리 동탄점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 화성시 동탄구 동탄공원로3길 10-7, 1층 (반송동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%B9%B4%EC%98%A4%EB%A6%AC%20%EB%8F%99%ED%83%84%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야카오리 동탄점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야카오리 미사강변점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 하남시 미사강변대로34번길 82, 골드프라자 1층 111호 (풍산동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%B9%B4%EC%98%A4%EB%A6%AC%20%EB%AF%B8%EC%82%AC%EA%B0%95%EB%B3%80%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야카오리 미사강변점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야카오리 분당정자점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 성남시 분당구 성남대로 295, 대림아크로텔 107호 (정자동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%B9%B4%EC%98%A4%EB%A6%AC%20%EB%B6%84%EB%8B%B9%EC%A0%95%EC%9E%90%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야카오리 분당정자점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야카오리(동부시장점) <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 중랑구 망우로32길 23, 중랑교쇼핑센터 1층 9호 (상봉동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%B9%B4%EC%98%A4%EB%A6%AC(%EB%8F%99%EB%B6%80%EC%8B%9C%EC%9E%A5%EC%A0%90)?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야카오리(동부시장점) 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야카이 <span class="badge">한식</span></div>
+  <div class="addr">경기도 안산시 단원구 중앙대로 907, 안산종합상가4동 4159호 (고잔동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%B9%B4%EC%9D%B4?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야카이 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야카타 <span class="badge">한식</span></div>
+  <div class="addr">충청북도 청주시 흥덕구 대농로 33, 1층 125호 (복대동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%B9%B4%ED%83%80?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야카타 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야케이 <span class="badge">일식</span></div>
+  <div class="addr">전북특별자치도 전주시 완산구 전주객사4길 73-11, 1층 (고사동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%BC%80%EC%9D%B4?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야케이 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야케이 <span class="badge">일식</span></div>
+  <div class="addr">전북특별자치도 전주시 덕진구 떡전4길 18 (금암동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%BC%80%EC%9D%B4?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야케이 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야케이 전주신시가지점 <span class="badge">일식</span></div>
+  <div class="addr">전북특별자치도 전주시 완산구 홍산남로 14, 1층 A101호 (효자동2가)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%BC%80%EC%9D%B4%20%EC%A0%84%EC%A3%BC%EC%8B%A0%EC%8B%9C%EA%B0%80%EC%A7%80%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야케이 전주신시가지점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야코노하 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 도봉구 우이천로20길 7 (창동,건영A상가 103동 118호)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%BD%94%EB%85%B8%ED%95%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야코노하 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야코노하 성수 <span class="badge">분식</span></div>
+  <div class="addr">서울특별시 성동구 왕십리로4길 10-1, 1층 (성수동1가)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%BD%94%EB%85%B8%ED%95%98%20%EC%84%B1%EC%88%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야코노하 성수 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야코이시 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 마포구 동교로 272-7, 1층 (연남동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%BD%94%EC%9D%B4%EC%8B%9C?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야코이시 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야쿠마 <span class="badge">한식</span></div>
+  <div class="addr">경기도 수원시 팔달구 중부대로220번길 10, 수원 인계동 동문굿모닝힐아파트 상가동 지하1층 202호 (인계동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%EC%BF%A0%EB%A7%88?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야쿠마 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">멘야큐 <span class="badge">일식</span></div>
+  <div class="addr">대구광역시 중구 중앙대로 379-4, 1층 (동성로3가)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EB%A9%98%EC%95%BC%ED%81%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="멘야큐 네이버 지도에서 보기">지도</a></div>
+</article></div>
+<nav class="pagination" aria-label="페이지 이동"><a class="page" href="shops-21.html">이전</a><a class="page" href="shops-1.html">1</a><a class="page" href="shops-2.html">2</a><form class="pg-jump" onsubmit="var n=Math.min(Math.max(1,parseInt(this.pg.value,10)||1),49);location.href=&quot;shops-&quot;+n+&quot;.html&quot;;return false;"><input name="pg" type="number" min="1" max="49" value="22" aria-label="페이지 번호로 이동"><span class="of">/ 49</span><button type="submit">이동</button></form><a class="page" href="shops-49.html">49</a><a class="page" href="shops-23.html">다음</a></nav></div></main>
+<footer class="site"><div class="wrap">식품의약품안전처·행정안전부 공공데이터 기반 · 가격·제휴는 실시간 조회(비영속) · <a href="products-1.html">제품 전체목록</a> · <a href="shops-1.html">음식점 전체목록</a></div></footer>
+<script>(function(){var b=document.getElementById("theme-toggle");if(!b)return;function sync(){var d=document.documentElement.getAttribute("data-theme")==="dark";b.textContent=d?"\u2600":"\u263e";b.setAttribute("aria-pressed",d?"true":"false");}sync();b.addEventListener("click",function(){var d=document.documentElement.getAttribute("data-theme")==="dark";if(d)document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme","dark");try{localStorage.setItem("ramendb:theme",d?"light":"dark");}catch(e){}sync();});})();</script>
+</body>
+</html>

@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>라멘 음식점 목록 — Ramen-DB</title>
+<meta name="description" content="식약처·행정안전부 공공데이터로 만든 전국 라면 제품·라멘 음식점 데이터베이스. 판매상태·영양·지도·검색.">
+<script>try{if(localStorage.getItem("ramendb:theme")==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}</script>
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --border: #e4e4e7;
+  --text: #18181b;
+  --muted: #6b7280;
+  --accent: #b45309;            /* 단일 accent(따뜻한 갈색, 링크·포커스) */
+  --ok: #15803d;                /* 판매중 */
+  --warn: #b91c1c;              /* 판매중지/회수 (accent와 구분되는 적색) */
+  --idle: #71717a;             /* 단종 추정 */
+  --radius: 8px;
+  --space: 16px;
+  --maxw: 1040px;
+  color-scheme: light;
+}
+/* 다크모드(기본 라이트, 헤더 토글). 중성 그레이 + 동일 accent 계열. */
+:root[data-theme="dark"] {
+  --bg: #18181b;
+  --surface: #232327;
+  --border: #3f3f46;
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --accent: #fbbf24;
+  --ok: #4ade80;
+  --warn: #f87171;
+  --idle: #a1a1aa;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] .disclosure { background: #2a2113; border-color: #5a4520; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--space); }
+header.site { border-bottom: 1px solid var(--border); }
+header.site .wrap { display: flex; align-items: baseline; gap: 20px; padding-top: 18px; padding-bottom: 18px; flex-wrap: wrap; }
+.brand { font-size: 20px; font-weight: 600; color: var(--text); }
+.brand:hover { text-decoration: none; }
+header.site nav { display: flex; gap: 16px; font-size: 14px; }
+header.site .muted { color: var(--muted); font-size: 13px; margin-left: auto; }
+main { padding: 24px 0 64px; }
+main h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; font-weight: 600; }
+h2.section { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: none;
+  margin: 0 0 12px; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  padding: 14px 16px;
+}
+.card h3 { font-size: 16px; margin: 0 0 6px; font-weight: 600; }
+.card .meta { color: var(--muted); font-size: 13px; margin: 2px 0; }
+.kcal { font-variant-numeric: tabular-nums; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+.status .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.status.on .dot { background: var(--ok); }
+.status.halt .dot { background: var(--warn); }
+.status.disc .dot { background: var(--idle); }
+.status.disc { color: var(--muted); }
+.sources { color: var(--muted); font-size: 12px; margin-top: 8px; }
+table.nutri { border-collapse: collapse; width: 100%; max-width: 420px; font-size: 14px; }
+table.nutri th, table.nutri td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+table.nutri td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.detail { display: grid; gap: 24px; }
+.product-img { max-width: 240px; width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--radius); margin-top: 12px; }
+.price {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  background: var(--surface);
+}
+.disclosure {
+  font-size: 13px;
+  color: var(--text);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 0 0 12px;
+}
+.quote { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.quote .src { color: var(--muted); font-size: 12px; }
+.shoplist { display: grid; gap: 8px; }
+.shop { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; }
+.shop .name { font-weight: 600; }
+.shop .addr { color: var(--muted); font-size: 13px; }
+.badge { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+.recipe { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.recipe h3 { font-size: 16px; margin: 0 0 4px; font-weight: 600; }
+.recipe h4 { font-size: 13px; color: var(--muted); margin: 12px 0 4px; font-weight: 600; }
+.recipe ul, .recipe ol { margin: 0; padding-left: 20px; }
+.curation { border-bottom: 1px solid var(--border); padding: 8px 0; }
+.rating { font-weight: 600; font-variant-numeric: tabular-nums; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.controls input, .controls select {
+  font: inherit; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text);
+}
+.controls input { flex: 1 1 220px; min-width: 0; }
+.pagination { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 0; align-items: center; }
+.pagination .page {
+  display: inline-flex; align-items: center; min-width: 32px; height: 32px; justify-content: center;
+  padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+  color: var(--text); background: var(--bg); cursor: pointer;
+}
+.pagination a.page:hover { border-color: var(--accent); text-decoration: none; }
+.pagination .page.current { border-color: var(--accent); color: var(--accent); font-weight: 600; cursor: default; }
+.pagination .page.gap { border: 0; cursor: default; color: var(--muted); }
+/* 헤더 다크모드 토글. */
+.theme-toggle { margin-left: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  width: 34px; height: 34px; border-radius: 6px; cursor: pointer; font-size: 15px; line-height: 1; }
+.theme-toggle:hover { border-color: var(--accent); }
+/* 소개(히어로) — 무엇을 하는 곳인지 한눈에. flat surface + border(그림자·그라데이션 없음). */
+.hero { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+  padding: 20px 22px; margin: 0 0 24px; }
+.hero h1 { font-size: 25px; margin: 0 0 12px; line-height: 1.25; }
+.hero .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+.hero .stat { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); padding: 10px 16px; min-width: 132px; }
+.hero .stat b { font-size: 24px; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.hero .stat span { font-size: 12px; color: var(--muted); }
+.hero p { margin: 0 0 8px; color: var(--text); }
+.hero p.sub { color: var(--muted); font-size: 13px; margin: 0; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 16px; }
+.toolbar input, .toolbar select { font: inherit; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg); color: var(--text); }
+.toolbar input[type="search"] { flex: 1 1 240px; min-width: 0; }
+/* 즐겨찾기만 토글 버튼(On이면 초록). */
+.toggle-btn { font: inherit; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  padding: 7px 12px; border-radius: 6px; cursor: pointer; }
+.toggle-btn[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
+.count { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+/* 즐겨찾기 별(카드 토글). */
+.fav { border: 0; background: none; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted);
+  padding: 0 2px; }
+.fav[aria-pressed="true"] { color: var(--accent); }
+.shop .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.shop .region { font-size: 12px; color: var(--accent); font-weight: 600; }
+/* 제품 카드/상세 공식 이미지(있을 때만). */
+.card-img { display: block; width: 100%; height: 140px; object-fit: contain; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 6px; margin: 0 0 10px; }
+/* 호버 강조(미묘 — 그림자 없이 테두리만). */
+.card:hover, .shop:hover { border-color: var(--accent); }
+/* 페이지 점프 입력 — 가운데 페이지(예: 35) 직접 이동. */
+.pg-jump { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
+.pg-jump input { width: 56px; height: 32px; text-align: center; font: inherit; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg); color: var(--text); }
+.pg-jump .of { color: var(--muted); font-size: 13px; }
+.pg-jump button { height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); cursor: pointer; font: inherit; }
+.pg-jump button:hover { border-color: var(--accent); }
+footer.site { border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+footer.site .wrap { padding: 20px var(--space); }
+footer.site a { color: var(--muted); text-decoration: underline; }
+@media (prefers-reduced-motion: no-preference) {
+  a, button { transition: color 120ms ease-out; }
+  .card, .shop, .theme-toggle, .toggle-btn { transition: border-color 120ms ease-out, background 120ms ease-out; }
+}
+</style>
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <a class="brand" href="index.html">Ramen.DB</a>
+  <nav><a href="index.html">제품</a> <a href="shops.html">음식점</a></nav>
+  <span class="muted">전국 라면·라멘 데이터베이스</span>
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="라이트/다크 모드 전환" title="라이트/다크 모드">☾</button>
+</div></header>
+<main><div class="wrap"><section class="hero">
+  <h1>Ramen.DB :: 전국 라면/라멘 데이터베이스</h1>
+  <div class="stats">
+    <div class="stat"><b>872</b><span>라면 제품</span></div>
+    <div class="stat"><b>2,917</b><span>라멘 음식점</span></div>
+  </div>
+  <p>전국 라멘·라면 음식점을 지역별로 찾고, 즐겨찾기에 담아 네이버 지도로 바로 여세요.</p>
+  <p class="sub">식품의약품안전처·행정안전부 공공데이터 기반</p>
+</section>
+<h2 class="section">음식점 전체 목록 · 2,917곳 (41/49)</h2>
+<div class="shoplist"><article class="shop">
+  <div class="name">코란라멘정왕점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 시흥시 봉우재로23번안길 17-1, 102호 (정왕동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EB%9E%80%EB%9D%BC%EB%A9%98%EC%A0%95%EC%99%95%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코란라멘정왕점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코묘라멘 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 송파구 송파대로 167, A동 G162호 (문정동, 문정역테라타워)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EB%AC%98%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코묘라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코바라멘 <span class="badge">일식</span></div>
+  <div class="addr">제주특별자치도 서귀포시 안덕면 사계남로216번길 29, A동 107호</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EB%B0%94%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코바라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코바코 라면 <span class="badge">분식</span></div>
+  <div class="addr">강원특별자치도 인제군 상남면 하남리 371</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EB%B0%94%EC%BD%94%20%EB%9D%BC%EB%A9%B4?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코바코 라면 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코요라멘 <span class="badge">일식</span></div>
+  <div class="addr">경기도 용인시 기흥구 동백중앙로 245, 동백문월드 나동 지하2층 제B122호 (중동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9A%94%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코요라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코우지라멘 <span class="badge">일식</span></div>
+  <div class="addr">경기도 광주시 장지1길 15, 103호 (장지동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9A%B0%EC%A7%80%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코우지라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코우짱 라멘 <span class="badge">한식</span></div>
+  <div class="addr">서울특별시 관악구 봉천로 227, 보라매샤르망 제1층 제101,102호 (봉천동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9A%B0%EC%A7%B1%20%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코우짱 라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 강서구 화곡로 354-5, 1층 101호 (화곡동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 <span class="badge">기타</span></div>
+  <div class="addr">경기도 성남시 분당구 정자로 13 (정자동,1층 102호)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 <span class="badge">일식</span></div>
+  <div class="addr">경기도 성남시 분당구 판교역로 230, 삼환하이펙스 B동 지1층 B113호 (삼평동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 <span class="badge">일식</span></div>
+  <div class="addr">경기도 부천시 원미구 중동로248번길 121-9, 중앙프라자 103호 (중동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 <span class="badge">기타</span></div>
+  <div class="addr">경기도 양평군 양평읍 양평시장길33번길 3</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 <span class="badge">일식</span></div>
+  <div class="addr">경기도 화성시 만세구 향남읍 상신하길로298번길 7-9, 1동 1층 108호</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 검단신도시 <span class="badge">일식</span></div>
+  <div class="addr">인천광역시 서구 이음5로 62, 정인프라자 101호 (원당동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EA%B2%80%EB%8B%A8%EC%8B%A0%EB%8F%84%EC%8B%9C?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 검단신도시 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 김포풍무점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 김포시 풍무로 128, 2층 206호 (풍무동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EA%B9%80%ED%8F%AC%ED%92%8D%EB%AC%B4%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 김포풍무점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 도산점(하우스 오브 코이) <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 강남구 압구정로46길 75, 지상2층 (신사동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EB%8F%84%EC%82%B0%EC%A0%90(%ED%95%98%EC%9A%B0%EC%8A%A4%20%EC%98%A4%EB%B8%8C%20%EC%BD%94%EC%9D%B4)?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 도산점(하우스 오브 코이) 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 동탄점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 화성시 동탄구 동탄첨단산업1로 27, 금강펜테리움 IX타워 근린생활시설동 지1층 MB17호 (영천동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EB%8F%99%ED%83%84%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 동탄점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 부천역점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 부천시 원미구 부일로460번길 20 (심곡동, 1층일부)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EB%B6%80%EC%B2%9C%EC%97%AD%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 부천역점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 새롬점 <span class="badge">일식</span></div>
+  <div class="addr">세종특별자치시 새롬로 26, 새뜸마을13단지 근린생활시설 1층 B-158호 (새롬동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%83%88%EB%A1%AC%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 새롬점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 서초점 <span class="badge">분식</span></div>
+  <div class="addr">서울특별시 서초구 효령로72길 57, E-B103호 (서초동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%84%9C%EC%B4%88%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 서초점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 서현역점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 성남시 분당구 서현로210번길 2, 성지하이츠텔 1층 103호 (서현동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%84%9C%ED%98%84%EC%97%AD%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 서현역점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 서현점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 성남시 분당구 황새울로360번길 28 (서현동, 은성프라자 1층 109호, 110호, 111호)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%84%9C%ED%98%84%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 서현점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 센터필드점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 강남구 테헤란로 231, 센터필드 더샵스앳센터필드 쇼핑몰 B2층 WB52호 (역삼동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%84%BC%ED%84%B0%ED%95%84%EB%93%9C%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 센터필드점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 수원시청점 <span class="badge">기타</span></div>
+  <div class="addr">경기도 수원시 팔달구 경수대로 438, 현대하이엘 1층 118호 (인계동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%88%98%EC%9B%90%EC%8B%9C%EC%B2%AD%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 수원시청점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 수지구청역점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 용인시 수지구 풍덕천로96번길 3-7, 수지부부치과 1층 104호 (풍덕천동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%88%98%EC%A7%80%EA%B5%AC%EC%B2%AD%EC%97%AD%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 수지구청역점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 수지동천역점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 용인시 수지구 신수로 767, 분당수지 U-TOWER A동 1층 123호 (동천동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%88%98%EC%A7%80%EB%8F%99%EC%B2%9C%EC%97%AD%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 수지동천역점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 안산중앙점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 안산시 단원구 예술대학로 11, 해남빌딩 105호 (고잔동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%95%88%EC%82%B0%EC%A4%91%EC%95%99%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 안산중앙점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 압구정점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 강남구 압구정로32길 11, 캐럴라인타워 지상1층 107호 (신사동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%95%95%EA%B5%AC%EC%A0%95%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 압구정점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 야탑점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 성남시 분당구 야탑로69번길 8, 한주코아 1층 105,107호 (야탑동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%95%BC%ED%83%91%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 야탑점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 야탑점 <span class="badge">한식</span></div>
+  <div class="addr">경기도 성남시 분당구 야탑로69번길 18, 동아프라자 1층 104호 (야탑동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%95%BC%ED%83%91%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 야탑점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 오리역점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 성남시 분당구 구미로9번길 13-7, 광장빌딩 1층 일부(102호)호 (구미동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%98%A4%EB%A6%AC%EC%97%AD%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 오리역점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 오송점 <span class="badge">일식</span></div>
+  <div class="addr">충청북도 청주시 흥덕구 오송읍 오송생명7로 118, 근린생활시설5동 1층 103호 (오송역파라곤센트럴시티3차)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%98%A4%EC%86%A1%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 오송점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 용인보정점 <span class="badge">한식</span></div>
+  <div class="addr">경기도 용인시 기흥구 죽전로 7 (보정동, 하이프라자 1층 103호)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%9A%A9%EC%9D%B8%EB%B3%B4%EC%A0%95%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 용인보정점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 이천하이닉스점 <span class="badge">기타</span></div>
+  <div class="addr">경기도 이천시 부발읍 경충대로 2100</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%9D%B4%EC%B2%9C%ED%95%98%EC%9D%B4%EB%8B%89%EC%8A%A4%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 이천하이닉스점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 장충동점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 중구 장충단로 168, 1층 (장충동1가)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%9E%A5%EC%B6%A9%EB%8F%99%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 장충동점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 종로점 <span class="badge">한식</span></div>
+  <div class="addr">서울특별시 종로구 종로 19, 르메이에르종로타운1 지상 2층 219-2호 (종로1가)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%A2%85%EB%A1%9C%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 종로점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 지로 <span class="badge">일식</span></div>
+  <div class="addr">경기도 성남시 분당구 정자일로198번길 15 (정자동, 제나프라자 111호)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%EC%A7%80%EB%A1%9C?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 지로 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 한티역점 <span class="badge">기타</span></div>
+  <div class="addr">서울특별시 강남구 선릉로64길 11-5, 1층 102호 (대치동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%ED%95%9C%ED%8B%B0%EC%97%AD%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 한티역점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘 흥덕점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 용인시 기흥구 흥덕2로75번길 8, 103호 (영덕동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%20%ED%9D%A5%EB%8D%95%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘 흥덕점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘(위례점) <span class="badge">일식</span></div>
+  <div class="addr">경기도 성남시 수정구 위례서일로1길 2, 1층 일부(103)호 (창곡동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98(%EC%9C%84%EB%A1%80%EC%A0%90)?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘(위례점) 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘김포풍무점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 김포시 풍무로 128, 206호 (풍무동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%EA%B9%80%ED%8F%AC%ED%92%8D%EB%AC%B4%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘김포풍무점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘선유도점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 영등포구 양평로17길 9, 상가에이동 1층 108호 (양평동4가, 경남아너스빌)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%EC%84%A0%EC%9C%A0%EB%8F%84%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘선유도점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘역북점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 용인시 처인구 명지로40번길 10, 1층 105호 (역북동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%EC%97%AD%EB%B6%81%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘역북점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코이라멘평택고덕점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 평택시 고덕면 고덕여염10길 88, 1층</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%9D%B4%EB%9D%BC%EB%A9%98%ED%8F%89%ED%83%9D%EA%B3%A0%EB%8D%95%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코이라멘평택고덕점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코지라멘 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 강남구 선릉로86길 6-4, 지상1층 (대치동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%A7%80%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코지라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코카이 라멘 <span class="badge">기타</span></div>
+  <div class="addr">서울특별시 마포구 와우산로11길 28, 지층 (상수동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%B9%B4%EC%9D%B4%20%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코카이 라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코코로(KOKORO)라멘 부천점 <span class="badge">일식</span></div>
+  <div class="addr">경기도 부천시 원미구 옥산로 12, 연화마을 상가동 지층 비101호 주방13호 (중동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%BD%94%EB%A1%9C(KOKORO)%EB%9D%BC%EB%A9%98%20%EB%B6%80%EC%B2%9C%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코코로(KOKORO)라멘 부천점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코코로라멘 회기점 <span class="badge">기타</span></div>
+  <div class="addr">서울특별시 동대문구 한천로58길 47, 상가동 지하층 101(주방7호)호 (이문동, 쌍용아파트)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%BD%94%EB%A1%9C%EB%9D%BC%EB%A9%98%20%ED%9A%8C%EA%B8%B0%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코코로라멘 회기점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코코로라멘(kokororamen) 잠실점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 송파구 백제고분로19길 17, 청암빌딩 1층 103호 (잠실동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%BD%94%EB%A1%9C%EB%9D%BC%EB%A9%98(kokororamen)%20%EC%9E%A0%EC%8B%A4%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코코로라멘(kokororamen) 잠실점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코코로라멘광장시장점 <span class="badge">일식</span></div>
+  <div class="addr">서울특별시 종로구 창경궁로 88-13, 원상빌딩 1층 (종로4가)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%EC%BD%94%EB%A1%9C%EB%9D%BC%EB%A9%98%EA%B4%91%EC%9E%A5%EC%8B%9C%EC%9E%A5%EC%A0%90?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코코로라멘광장시장점 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">코토노멘야 <span class="badge">기타</span></div>
+  <div class="addr">경상북도 경산시 청운로 23-1 (대동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%94%ED%86%A0%EB%85%B8%EB%A9%98%EC%95%BC?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="코토노멘야 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">콩나라면나라 <span class="badge">한식</span></div>
+  <div class="addr">충청북도 청주시 흥덕구 가경동 415-9 (2층)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BD%A9%EB%82%98%EB%9D%BC%EB%A9%B4%EB%82%98%EB%9D%BC?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="콩나라면나라 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">콩나물떡라면집 <span class="badge">분식</span></div>
+  <div class="addr">서울특별시 중구 청파로 445-1, 1층 (중림동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BD%A9%EB%82%98%EB%AC%BC%EB%96%A1%EB%9D%BC%EB%A9%B4%EC%A7%91?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="콩나물떡라면집 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">쿄다이 라멘 <span class="badge">일식</span></div>
+  <div class="addr">경기도 하남시 조정대로 150, 아이테코 1층 R115호 (덕풍동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BF%84%EB%8B%A4%EC%9D%B4%20%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="쿄다이 라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">쿄다이라멘 <span class="badge">분식</span></div>
+  <div class="addr">경기도 성남시 분당구 운중로225번길 4-1, 1층 일부호 (판교동)</div>
+  <div class="meta">영업 종료 · <a href="https://map.naver.com/p/search/%EC%BF%84%EB%8B%A4%EC%9D%B4%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="쿄다이라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">쿄다이라멘 <span class="badge">일식</span></div>
+  <div class="addr">경기도 성남시 분당구 판교공원로5길 1, 1층 일부 (판교동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BF%84%EB%8B%A4%EC%9D%B4%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="쿄다이라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">쿄라멘(Kyo ramen) <span class="badge">기타</span></div>
+  <div class="addr">서울특별시 마포구 동교로46길 25, 지층 (연남동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BF%84%EB%9D%BC%EB%A9%98(Kyo%20ramen)?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="쿄라멘(Kyo ramen) 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">쿄오모라멘 <span class="badge">한식</span></div>
+  <div class="addr">서울특별시 중구 다산로8길 16 (신당동, 1층)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BF%84%EC%98%A4%EB%AA%A8%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="쿄오모라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">쿄우라멘 <span class="badge">한식</span></div>
+  <div class="addr">경상남도 진주시 진주대로908번길 6, 외1필지 1층일부 (칠암동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BF%84%EC%9A%B0%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="쿄우라멘 네이버 지도에서 보기">지도</a></div>
+</article>
+<article class="shop">
+  <div class="name">쿠니라멘 <span class="badge">일식</span></div>
+  <div class="addr">경기도 안양시 만안구 냉천로 4-1, 1층 (안양동)</div>
+  <div class="meta">영업 · <a href="https://map.naver.com/p/search/%EC%BF%A0%EB%8B%88%EB%9D%BC%EB%A9%98?c=15.00,0,0,0,dh" rel="noopener" target="_blank" aria-label="쿠니라멘 네이버 지도에서 보기">지도</a></div>
+</article></div>
+<nav class="pagination" aria-label="페이지 이동"><a class="page" href="shops-40.html">이전</a><a class="page" href="shops-1.html">1</a><a class="page" href="shops-2.html">2</a><form class="pg-jump" onsubmit="var n=Math.min(Math.max(1,parseInt(this.pg.value,10)||1),49);location.href=&quot;shops-&quot;+n+&quot;.html&quot;;return false;"><input name="pg" type="number" min="1" max="49" value="41" aria-label="페이지 번호로 이동"><span class="of">/ 49</span><button type="submit">이동</button></form><a class="page" href="shops-49.html">49</a><a class="page" href="shops-42.html">다음</a></nav></div></main>
+<footer class="site"><div class="wrap">식품의약품안전처·행정안전부 공공데이터 기반 · 가격·제휴는 실시간 조회(비영속) · <a href="products-1.html">제품 전체목록</a> · <a href="shops-1.html">음식점 전체목록</a></div></footer>
+<script>(function(){var b=document.getElementById("theme-toggle");if(!b)return;function sync(){var d=document.documentElement.getAttribute("data-theme")==="dark";b.textContent=d?"\u2600":"\u263e";b.setAttribute("aria-pressed",d?"true":"false");}sync();b.addEventListener("click",function(){var d=document.documentElement.getAttribute("data-theme")==="dark";if(d)document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme","dark");try{localStorage.setItem("ramendb:theme",d?"light":"dark");}catch(e){}sync();});})();</script>
+</body>
+</html>
