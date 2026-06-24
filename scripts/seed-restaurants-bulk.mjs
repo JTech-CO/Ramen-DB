@@ -8,13 +8,19 @@
 // 컬럼 인덱스(0-based)는 2026-06-23 실파일 헤더로 확정. 헤더 변경 시 여기만 갱신(런북 9).
 
 import { createReadStream, writeFileSync } from "node:fs";
-import { filterRamenShops, normalizeRestaurant } from "@ramen/ingest";
+import {
+  RAMEN_SHOP_CHAINS,
+  RAMEN_SHOP_KEYWORDS,
+  filterRamenShops,
+  normalizeRestaurant,
+} from "@ramen/ingest";
 
 const SRC = process.env.SHOPS_CSV ?? "data/raw/general_restaurants.csv";
 const OUT = process.env.SHOPS_OUT ?? "data/ramen-shops.json";
 
-// 라멘 키워드 1차 컷(전건 정규화 회피). 업태·음성키워드 정밀필터는 classifyShop이 수행.
-const KW = /라멘|라면|멘야|麺/;
+// 라멘 키워드 1차 컷(전건 정규화 회피). filterRamenShops와 동일한 키워드+체인으로 sync.
+// 업태·음성키워드 정밀필터는 classifyShop이 수행.
+const KW = new RegExp([...RAMEN_SHOP_KEYWORDS, ...RAMEN_SHOP_CHAINS].join("|"));
 
 // 컬럼 인덱스(0-based)
 const C_MGTNO = 1;

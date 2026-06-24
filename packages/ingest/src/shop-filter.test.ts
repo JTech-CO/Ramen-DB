@@ -23,6 +23,13 @@ describe("classifyShop (ADR-0004 업태+키워드+보정)", () => {
   it("라면땅=FP(키워드 걸리나 라멘집 아님) → 기본필터로는 포함", () => {
     expect(classifyShop(byId("MGT-0006"), RAMEN_CORRECTIONS_V1).included).toBe(true);
   });
+  it("유명 라멘 체인(상호에 라멘 없음: 잇푸도·탄탄면)도 포함, 과탐어(야키토리)는 제외", () => {
+    const mk = (name: string) =>
+      normalizeRestaurant({ MGTNO: "X", BPLCNM: name, UPTAENM: "일식", TRDSTATENM: "영업/정상" });
+    expect(classifyShop(mk("잇푸도 넥스트도어"), RAMEN_CORRECTIONS_V1).reason).toBe("업태+키워드");
+    expect(classifyShop(mk("탄탄면공방 명동점"), RAMEN_CORRECTIONS_V1).reason).toBe("업태+키워드");
+    expect(classifyShop(mk("구기동 야키토리"), RAMEN_CORRECTIONS_V1).included).toBe(false); // 토리는 체인 아님
+  });
   it("보정 공백키도 정규화 매칭", () => {
     const c: CorrectionList = { version: "t", include: [" MGT-0007 "], exclude: ["MGT-0006"] };
     expect(classifyShop(byId("MGT-0007"), c).reason).toBe("보정-포함");

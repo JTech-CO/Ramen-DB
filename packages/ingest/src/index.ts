@@ -56,6 +56,7 @@ export type { ShopFilterReason, ShopFilterDecision, LabeledShop } from "./shop-f
 export {
   RAMEN_SHOP_CATEGORIES,
   RAMEN_SHOP_KEYWORDS,
+  RAMEN_SHOP_CHAINS,
   SHOP_NEGATIVE_KEYWORDS,
   classifyShop,
   filterRamenShops,

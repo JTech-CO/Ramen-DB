@@ -19,6 +19,12 @@ export const RAMEN_SHOP_CATEGORIES = new Set([
 /** ② 상호 키워드. */
 export const RAMEN_SHOP_KEYWORDS = ["라멘", "라면", "멘야", "麺"];
 
+/**
+ * ②' 상호에 라멘/라면이 없지만 라멘(류)인 유명 체인·노들 — 벌크 실데이터로 존재·과탐 검증한
+ * 보수적 화이트리스트(ADR-0004 ③). 과탐 후보(토리·천하일품·우마이 등)는 제외. 데이터로 재검증 후 추가.
+ */
+export const RAMEN_SHOP_CHAINS = ["잇푸도", "무테키야", "탄탄면", "돈코츠"];
+
 /** 음성 키워드 — 컵라면 제공처 등 라멘집 아닌 곳. */
 export const SHOP_NEGATIVE_KEYWORDS = ["편의점", "휴게소", "마트", "주유소"];
 
@@ -54,7 +60,10 @@ export function classifyShop(s: NormalizedShop, c: CorrectionList): ShopFilterDe
   if (!RAMEN_SHOP_CATEGORIES.has(s.category)) {
     return { included: false, reason: "업태불일치" };
   }
-  if (!RAMEN_SHOP_KEYWORDS.some((k) => name.includes(k))) {
+  const hasKeyword =
+    RAMEN_SHOP_KEYWORDS.some((k) => name.includes(k)) ||
+    RAMEN_SHOP_CHAINS.some((k) => name.includes(k));
+  if (!hasKeyword) {
     return { included: false, reason: "키워드불일치" };
   }
   return { included: true, reason: "업태+키워드" };
