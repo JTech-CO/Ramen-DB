@@ -163,6 +163,8 @@ export interface SearchEntry {
   status: ProductStatus;
   /** 에너지(kcal), 없으면 null */
   kcal: number | null;
+  /** 공식 이미지 URL(있을 때만 — 현재 회수 피드 제공분 한정) */
+  img?: string;
 }
 
 export function buildSearchIndex(products: RamenProduct[]): SearchEntry[] {
@@ -174,6 +176,7 @@ export function buildSearchIndex(products: RamenProduct[]): SearchEntry[] {
     pkg: p.packageType,
     status: p.status,
     kcal: p.nutrition?.energyKcal ?? null,
+    ...(p.imageUrl ? { img: p.imageUrl } : {}),
   }));
 }
 
@@ -205,21 +208,37 @@ export const SHOP_REGION_ORDER = [
   "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주", "기타",
 ];
 
-/** 주소에서 시/도 지역 추출(매칭 없으면 기타). */
+/** 주소에서 시/도 지역(대분류) 추출(매칭 없으면 기타). */
 export function shopRegion(address: string): string {
   const a = address.trim();
   for (const [re, region] of REGION_MATCHERS) if (re.test(a)) return region;
   return "기타";
 }
 
-/** 음식점 클라이언트 인덱스(경량). 이름순 정렬·지역 부여. */
+/** 주소에서 시/군/구(중분류) 추출 — 예: "경기도 수원시 영통구 …" → "수원시 영통구". 없으면 빈 문자열. */
+export function shopRegion2(address: string): string {
+  const tokens = address.trim().split(/\s+/);
+  const rest = tokens.slice(1); // 시/도 제거
+  const out: string[] = [];
+  for (const t of rest) {
+    if (/[시군구]$/.test(t)) {
+      out.push(t);
+      if (t.endsWith("구") || t.endsWith("군") || out.length >= 2) break;
+    } else break; // 시/군/구 외 토큰(도로명·동) 만나면 멈춤
+  }
+  return out.join(" ");
+}
+
+/** 음식점 클라이언트 인덱스(경량). 이름순 정렬·지역(대/중분류) 부여. */
 export interface ShopEntry {
   id: string;
   name: string;
   /** 업태 */
   cat: string;
-  /** 시/도 지역 */
+  /** 시/도(대분류) */
   region: string;
+  /** 시/군/구(중분류) */
+  region2: string;
   addr: string;
   status: BusinessStatus;
   lat?: number;
@@ -232,6 +251,7 @@ export function buildShopIndex(shops: RamenShop[]): ShopEntry[] {
     name: s.name,
     cat: s.category ?? "",
     region: shopRegion(s.address),
+    region2: shopRegion2(s.address),
     addr: s.address,
     status: s.businessStatus,
     ...(s.lat !== undefined ? { lat: s.lat } : {}),

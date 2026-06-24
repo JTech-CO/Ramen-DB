@@ -153,7 +153,7 @@ describe("renderShop", () => {
     expect(html).toContain("스미스라멘");
     expect(html).toContain("모범음식점");
     expect(html).toContain("영업");
-    expect(html).toContain("openstreetmap.org"); // 좌표 → 지도 링크
+    expect(html).toContain("map.naver.com"); // 상호 → 네이버 지도 링크
     expect(html).toContain("지도");
   });
   it("배지·좌표 없는 음식점: 이중 공백 없음", () => {
@@ -262,7 +262,7 @@ describe("renderHero + 검색·필터 앱 페이지", () => {
   const counts = { products: 872, shops: 2917 };
   it("히어로: 사이트 설명 + 통계(천단위)", () => {
     const html = renderHero("product", counts);
-    expect(html).toContain("Ramen-DB");
+    expect(html).toContain("Ramen.DB");
     expect(html).toContain("2,917"); // 천단위 포맷
     expect(html).toContain("872");
     expect(html).toContain("공공데이터");

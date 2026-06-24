@@ -16,7 +16,22 @@ export const STYLES = `
   --radius: 8px;
   --space: 16px;
   --maxw: 1040px;
+  color-scheme: light;
 }
+/* 다크모드(기본 라이트, 헤더 토글). 중성 그레이 + 동일 accent 계열. */
+:root[data-theme="dark"] {
+  --bg: #18181b;
+  --surface: #232327;
+  --border: #3f3f46;
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --accent: #fbbf24;
+  --ok: #4ade80;
+  --warn: #f87171;
+  --idle: #a1a1aa;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] .disclosure { background: #2a2113; border-color: #5a4520; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -111,28 +126,41 @@ table.nutri td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .pagination a.page:hover { border-color: var(--accent); text-decoration: none; }
 .pagination .page.current { border-color: var(--accent); color: var(--accent); font-weight: 600; cursor: default; }
 .pagination .page.gap { border: 0; cursor: default; color: var(--muted); }
-/* 소개(히어로) — 이 사이트가 무엇인지 한눈에. flat surface + border(그림자·그라데이션 없음). */
+/* 헤더 다크모드 토글. */
+.theme-toggle { margin-left: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  width: 34px; height: 34px; border-radius: 6px; cursor: pointer; font-size: 15px; line-height: 1; }
+.theme-toggle:hover { border-color: var(--accent); }
+/* 소개(히어로) — 무엇을 하는 곳인지 한눈에. flat surface + border(그림자·그라데이션 없음). */
 .hero { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
   padding: 20px 22px; margin: 0 0 24px; }
-.hero h1 { font-size: 26px; margin: 0 0 8px; line-height: 1.25; }
-.hero p { margin: 0 0 12px; color: var(--text); max-width: 60ch; }
-.hero p.sub { color: var(--muted); font-size: 14px; margin: 0; }
-.hero .stats { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0 0 12px; }
-.hero .stat { display: flex; align-items: baseline; gap: 6px; }
-.hero .stat b { font-size: 22px; color: var(--accent); font-variant-numeric: tabular-nums; }
-.hero .stat span { font-size: 13px; color: var(--muted); }
+.hero h1 { font-size: 25px; margin: 0 0 12px; line-height: 1.25; }
+.hero .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+.hero .stat { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); padding: 10px 16px; min-width: 132px; }
+.hero .stat b { font-size: 24px; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.hero .stat span { font-size: 12px; color: var(--muted); }
+.hero p { margin: 0 0 8px; color: var(--text); }
+.hero p.sub { color: var(--muted); font-size: 13px; margin: 0; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 16px; }
 .toolbar input, .toolbar select { font: inherit; padding: 7px 10px; border: 1px solid var(--border);
   border-radius: 6px; background: var(--bg); color: var(--text); }
 .toolbar input[type="search"] { flex: 1 1 240px; min-width: 0; }
-.toolbar label.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; }
+/* 즐겨찾기만 토글 버튼(On이면 초록). */
+.toggle-btn { font: inherit; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  padding: 7px 12px; border-radius: 6px; cursor: pointer; }
+.toggle-btn[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
 .count { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
-/* 즐겨찾기 별(기능 토글). */
+/* 즐겨찾기 별(카드 토글). */
 .fav { border: 0; background: none; cursor: pointer; font-size: 18px; line-height: 1; color: var(--muted);
   padding: 0 2px; }
 .fav[aria-pressed="true"] { color: var(--accent); }
 .shop .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .shop .region { font-size: 12px; color: var(--accent); font-weight: 600; }
+/* 제품 카드/상세 공식 이미지(있을 때만). */
+.card-img { display: block; width: 100%; height: 140px; object-fit: contain; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 6px; margin: 0 0 10px; }
+/* 호버 강조(미묘 — 그림자 없이 테두리만). */
+.card:hover, .shop:hover { border-color: var(--accent); }
 /* 페이지 점프 입력 — 가운데 페이지(예: 35) 직접 이동. */
 .pg-jump { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
 .pg-jump input { width: 56px; height: 32px; text-align: center; font: inherit; border: 1px solid var(--border);
@@ -146,5 +174,6 @@ footer.site .wrap { padding: 20px var(--space); }
 footer.site a { color: var(--muted); text-decoration: underline; }
 @media (prefers-reduced-motion: no-preference) {
   a, button { transition: color 120ms ease-out; }
+  .card, .shop, .theme-toggle, .toggle-btn { transition: border-color 120ms ease-out, background 120ms ease-out; }
 }
 `;

@@ -8,6 +8,7 @@ import {
   manufacturerFacets,
   paginate,
   shopRegion,
+  shopRegion2,
   sortProducts,
   statusFacets,
 } from "./query.js";
@@ -144,7 +145,7 @@ describe("dedupeProducts — 동일 (제품명+제조사명) 대표 1건", () =>
 });
 
 describe("shopRegion + buildShopIndex (음식점 지역)", () => {
-  it("주소 → 시/도 지역", () => {
+  it("주소 → 시/도(대분류)", () => {
     expect(shopRegion("서울특별시 종로구 ...")).toBe("서울");
     expect(shopRegion("경기도 성남시 ...")).toBe("경기");
     expect(shopRegion("충청남도 당진시 ...")).toBe("충남");
@@ -152,15 +153,22 @@ describe("shopRegion + buildShopIndex (음식점 지역)", () => {
     expect(shopRegion("강원특별자치도 춘천시 ...")).toBe("강원");
     expect(shopRegion("우주 ...")).toBe("기타");
   });
-  it("buildShopIndex: 경량 필드 + 지역 + 좌표 보존", () => {
+  it("주소 → 시/군/구(중분류)", () => {
+    expect(shopRegion2("서울특별시 강남구 테헤란로 1")).toBe("강남구");
+    expect(shopRegion2("경기도 수원시 영통구 매영로 1")).toBe("수원시 영통구"); // 시+구
+    expect(shopRegion2("경기도 가평군 ...")).toBe("가평군");
+    expect(shopRegion2("강원특별자치도 춘천시 중앙로")).toBe("춘천시");
+    expect(shopRegion2("세종특별자치시 한솔동")).toBe(""); // 시군구 없음
+  });
+  it("buildShopIndex: 경량 필드 + 지역(대/중) + 좌표 보존", () => {
     const shops: RamenShop[] = [
-      { id: "b", name: "나라멘", address: "부산광역시 ...", businessStatus: "ACTIVE", category: "일식", lat: 35.1, lng: 129.1, source: "RESTAURANT" },
-      { id: "a", name: "가라멘", address: "서울특별시 ...", businessStatus: "CLOSED", category: "분식", source: "RESTAURANT" },
+      { id: "b", name: "나라멘", address: "부산광역시 해운대구 ...", businessStatus: "ACTIVE", category: "일식", lat: 35.1, lng: 129.1, source: "RESTAURANT" },
+      { id: "a", name: "가라멘", address: "서울특별시 강남구 ...", businessStatus: "CLOSED", category: "분식", source: "RESTAURANT" },
     ];
     const idx = buildShopIndex(shops);
     expect(idx.map((e) => e.name)).toEqual(["가라멘", "나라멘"]); // 이름순
     expect(idx.find((e) => e.id === "b")).toEqual({
-      id: "b", name: "나라멘", cat: "일식", region: "부산", addr: "부산광역시 ...", status: "ACTIVE", lat: 35.1, lng: 129.1,
+      id: "b", name: "나라멘", cat: "일식", region: "부산", region2: "해운대구", addr: "부산광역시 해운대구 ...", status: "ACTIVE", lat: 35.1, lng: 129.1,
     });
     expect(idx.find((e) => e.id === "a")!.lat).toBeUndefined(); // 좌표 없으면 생략
   });

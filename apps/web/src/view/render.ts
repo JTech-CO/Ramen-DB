@@ -14,7 +14,7 @@ import { attributionLabel } from "@ramen/shared";
 import type { AffiliateView } from "../tier2/affiliate-view.js";
 import { hasAffiliate } from "../tier2/affiliate-view.js";
 import type { Page } from "../catalog/query.js";
-import { PACKAGE_LABEL, SHOP_REGION_ORDER, STATUS_LABEL } from "../catalog/query.js";
+import { PACKAGE_LABEL, SHOP_REGION_ORDER } from "../catalog/query.js";
 
 /** 헤더/히어로 통계 — 스냅샷 규모. */
 export interface SiteCounts {
@@ -58,8 +58,11 @@ function makerLine(p: Pick<RamenProduct, "manufacturerName">): string {
 
 export function renderProductCard(p: RamenProduct): string {
   const kcal = p.nutrition ? `${p.nutrition.energyKcal} kcal` : "영양 정보 없음";
+  const img = p.imageUrl
+    ? `<img class="card-img" src="${escapeAttr(safeUrl(p.imageUrl))}" alt="${escapeHtml(p.name)}" loading="lazy">`
+    : "";
   return `<article class="card">
-  <h3><a href="${escapeAttr(productHref(p.id))}">${escapeHtml(p.name)}</a></h3>
+  ${img}<h3><a href="${escapeAttr(productHref(p.id))}">${escapeHtml(p.name)}</a></h3>
   ${makerLine(p)}<p class="meta">${renderStatus(p)}</p>
   <p class="meta kcal">${escapeHtml(kcal)}</p>
   ${sourcesLine(p.sourceRefs)}
@@ -182,12 +185,9 @@ export function renderShop(s: RamenShop): string {
   ]
     .filter((b) => b.length > 0)
     .join(" ");
-  // 좌표는 raw 숫자 대신 지도 딥링크로(접근성: 의미 있는 링크 텍스트).
-  let mapLink = "";
-  if (s.lat !== undefined && s.lng !== undefined) {
-    const href = `https://www.openstreetmap.org/?mlat=${s.lat}&mlon=${s.lng}#map=18/${s.lat}/${s.lng}`;
-    mapLink = ` · <a href="${escapeAttr(href)}" rel="noopener" target="_blank" aria-label="${escapeHtml(s.name)} 지도에서 보기">지도</a>`;
-  }
+  // 네이버 지도 검색 딥링크(상호 기준) — 위치·사진·리뷰를 네이버에서 바로.
+  const naverMap = `https://map.naver.com/p/search/${encodeURIComponent(s.name)}?c=15.00,0,0,0,dh`;
+  const mapLink = ` · <a href="${escapeAttr(naverMap)}" rel="noopener" target="_blank" aria-label="${escapeHtml(s.name)} 네이버 지도에서 보기">지도</a>`;
   return `<article class="shop">
   <div class="name">${escapeHtml(s.name)}${badges ? ` ${badges}` : ""}</div>
   <div class="addr">${escapeHtml(s.address)}</div>
@@ -200,6 +200,12 @@ export function renderShopList(shops: RamenShop[]): string {
   return `<div class="shoplist">${shops.map(renderShop).join("\n")}</div>`;
 }
 
+/** 라이트/다크 적용(FOUC 방지, head) + 토글 wiring(body 끝). 정적/앱 모든 페이지 공통. */
+const THEME_HEAD_SCRIPT =
+  `<script>try{if(localStorage.getItem("ramendb:theme")==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}</script>`;
+const THEME_TOGGLE_SCRIPT =
+  `<script>(function(){var b=document.getElementById("theme-toggle");if(!b)return;function sync(){var d=document.documentElement.getAttribute("data-theme")==="dark";b.textContent=d?"\\u2600":"\\u263e";b.setAttribute("aria-pressed",d?"true":"false");}sync();b.addEventListener("click",function(){var d=document.documentElement.getAttribute("data-theme")==="dark";if(d)document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme","dark");try{localStorage.setItem("ramendb:theme",d?"light":"dark");}catch(e){}sync();});})();</script>`;
+
 export function pageShell(title: string, body: string): string {
   return `<!doctype html>
 <html lang="ko">
@@ -208,16 +214,19 @@ export function pageShell(title: string, body: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="식약처·행정안전부 공공데이터로 만든 전국 라면 제품·라멘 음식점 데이터베이스. 판매상태·영양·지도·검색.">
+${THEME_HEAD_SCRIPT}
 <style>${STYLES}</style>
 </head>
 <body>
 <header class="site"><div class="wrap">
-  <a class="brand" href="index.html">Ramen-DB</a>
+  <a class="brand" href="index.html">Ramen.DB</a>
   <nav><a href="index.html">제품</a> <a href="shops.html">음식점</a></nav>
   <span class="muted">전국 라면·라멘 데이터베이스</span>
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="라이트/다크 모드 전환" title="라이트/다크 모드">☾</button>
 </div></header>
 <main><div class="wrap">${body}</div></main>
-<footer class="site"><div class="wrap">출처: 식품의약품안전처·행정안전부 공공데이터. 가격·제휴는 실시간 조회(비영속). · <a href="products-1.html">제품 전체목록</a> · <a href="shops-1.html">음식점 전체목록</a></div></footer>
+<footer class="site"><div class="wrap">식품의약품안전처·행정안전부 공공데이터 기반 · 가격·제휴는 실시간 조회(비영속) · <a href="products-1.html">제품 전체목록</a> · <a href="shops-1.html">음식점 전체목록</a></div></footer>
+${THEME_TOGGLE_SCRIPT}
 </body>
 </html>`;
 }
@@ -227,16 +236,16 @@ export function renderHero(kind: "product" | "shop", counts: SiteCounts): string
   const fmt = (n: number): string => n.toLocaleString("ko-KR");
   const intro =
     kind === "product"
-      ? "봉지·컵 라면을 제품명·제조사로 검색하고 판매상태·영양 정보를 확인하세요."
-      : "전국 라멘·라면 음식점을 지역별로 찾고, 즐겨찾기에 담아 지도로 바로 여세요.";
+      ? "봉지·컵 라면을 제품명과 제조사로 검색하고 판매상태·영양 정보를 확인하세요."
+      : "전국 라멘·라면 음식점을 지역별로 찾고, 즐겨찾기에 담아 네이버 지도로 바로 여세요.";
   return `<section class="hero">
-  <h1>Ramen-DB — 전국 라면·라멘 데이터베이스</h1>
+  <h1>Ramen.DB :: 전국 라면/라멘 데이터베이스</h1>
   <div class="stats">
-    <span class="stat"><b>${fmt(counts.products)}</b><span>라면 제품</span></span>
-    <span class="stat"><b>${fmt(counts.shops)}</b><span>라멘 음식점</span></span>
+    <div class="stat"><b>${fmt(counts.products)}</b><span>라면 제품</span></div>
+    <div class="stat"><b>${fmt(counts.shops)}</b><span>라멘 음식점</span></div>
   </div>
   <p>${escapeHtml(intro)}</p>
-  <p class="sub">식품의약품안전처·행정안전부 공공데이터 기반 · 정보 제공용</p>
+  <p class="sub">식품의약품안전처·행정안전부 공공데이터 기반</p>
 </section>`;
 }
 
@@ -306,18 +315,16 @@ ${renderPagination(page.page, page.totalPages, hrefFor, { prefix: "shops-", suff
 
 /** 제품 검색·필터 앱(index.html). app.js가 search-index.json을 소비. noscript는 정적 목록으로. */
 export function renderProductAppPage(counts: SiteCounts): string {
-  const statusOpts = Object.entries(STATUS_LABEL)
-    .map(([v, l]) => `<option value="${escapeAttr(v)}">${escapeHtml(l)}</option>`)
-    .join("");
   const pkgOpts = Object.entries(PACKAGE_LABEL)
     .map(([v, l]) => `<option value="${escapeAttr(v)}">${escapeHtml(l)}</option>`)
     .join("");
+  // 판매상태는 판매중/판매중지(=판매중지·회수·단종 통합)로 단순화. 단종추정 라벨은 카드에서 '추정' 유지(INV-6).
   const body = `${renderHero("product", counts)}
 <form class="toolbar" role="search" onsubmit="return false">
   <input id="q" type="search" placeholder="제품명·제조사 검색" aria-label="제품명·제조사 검색" autocomplete="off">
-  <select id="st" aria-label="판매상태"><option value="">상태 전체</option>${statusOpts}</select>
+  <select id="st" aria-label="판매상태"><option value="">상태 전체</option><option value="on">판매중</option><option value="off">판매중지</option></select>
   <select id="pk" aria-label="포장"><option value="">포장 전체</option>${pkgOpts}</select>
-  <select id="sort" aria-label="정렬"><option value="name">이름순</option><option value="kcal">칼로리 낮은순</option></select>
+  <select id="sort" aria-label="정렬"><option value="name">이름순</option><option value="kcalDesc">칼로리 높은순</option><option value="kcalAsc">칼로리 낮은순</option></select>
 </form>
 <p class="count"><span id="count">불러오는 중…</span></p>
 <div id="results" class="grid" aria-live="polite"></div>
@@ -325,7 +332,7 @@ export function renderProductAppPage(counts: SiteCounts): string {
 <noscript><p class="count">검색은 JavaScript가 필요합니다. <a href="products-1.html">제품 전체 목록 보기</a></p></noscript>
 <script>window.__APP__={type:"product",data:"search-index.json",per:60};</script>
 <script src="app.js" defer></script>`;
-  return pageShell("라면 제품 — Ramen-DB", body);
+  return pageShell("라면 제품 — Ramen.DB", body);
 }
 
 /** 음식점 검색·지역·즐겨찾기 앱(shops.html). app.js가 shops-index.json을 소비. */
@@ -336,9 +343,10 @@ export function renderShopAppPage(counts: SiteCounts): string {
   const body = `${renderHero("shop", counts)}
 <form class="toolbar" role="search" onsubmit="return false">
   <input id="q" type="search" placeholder="음식점명·주소 검색" aria-label="음식점명·주소 검색" autocomplete="off">
-  <select id="rg" aria-label="지역"><option value="">지역 전체</option>${regionOpts}</select>
+  <select id="rg" aria-label="시/도"><option value="">시/도 전체</option>${regionOpts}</select>
+  <select id="rg2" aria-label="시/군/구"><option value="">시/군/구 전체</option></select>
   <select id="sort" aria-label="정렬"><option value="region">지역순</option><option value="name">이름순</option></select>
-  <label class="chk"><input type="checkbox" id="favonly"> ★ 즐겨찾기만</label>
+  <button type="button" id="favonly" class="toggle-btn" aria-pressed="false">★ 즐겨찾기만</button>
 </form>
 <p class="count"><span id="count">불러오는 중…</span></p>
 <div id="results" class="shoplist" aria-live="polite"></div>
@@ -346,7 +354,7 @@ export function renderShopAppPage(counts: SiteCounts): string {
 <noscript><p class="count">검색은 JavaScript가 필요합니다. <a href="shops-1.html">음식점 전체 목록 보기</a></p></noscript>
 <script>window.__APP__={type:"shop",data:"shops-index.json",per:60};</script>
 <script src="app.js" defer></script>`;
-  return pageShell("라멘 음식점 — Ramen-DB", body);
+  return pageShell("라멘 음식점 — Ramen.DB", body);
 }
 
 export function renderDetailPage(
